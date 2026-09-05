@@ -3,6 +3,7 @@ import axios from "axios";
 export type LocationData = {
   name: string;
   country: string;
+  admin1?: string;
   latitude: number;
   longitude: number;
 };
@@ -321,4 +322,36 @@ export async function getWeather(
       labels,
 
   };
+}
+
+export async function searchLocationSuggestions(
+  query: string
+): Promise<LocationData[]> {
+  const response = await axios.get(
+    "https://geocoding-api.open-meteo.com/v1/search",
+    {
+      params: {
+        name: query,
+        count: 5,
+        language: "en",
+        format: "json",
+      },
+    }
+  );
+
+  return (response.data.results || []).map(
+    (result: {
+      name: string;
+      country?: string;
+      latitude: number;
+      longitude: number;
+      admin1?: string;
+    }) => ({
+      name: result.name,
+      country: result.country || "",
+      latitude: Number(result.latitude),
+      longitude: Number(result.longitude),
+      admin1: result.admin1,
+    })
+  );
 }

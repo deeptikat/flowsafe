@@ -189,6 +189,7 @@ button {
 
 .search {
   width: 310px;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -206,6 +207,58 @@ button {
   background: transparent;
   color: #27313a;
   font-size: 12px;
+}
+
+.search-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  overflow: hidden;
+  border: 1px solid #e2e7eb;
+  border-radius: 7px;
+  background: white;
+  box-shadow: 0 10px 24px rgba(39, 49, 58, 0.12);
+}
+
+.suggestion {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid #f0f2f4;
+  background: white;
+  color: #52606b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestion:last-child {
+  border-bottom: 0;
+}
+
+.suggestion:hover,
+.suggestion.active {
+  background: #f2f7f8;
+}
+
+.suggestion span {
+  display: grid;
+  gap: 2px;
+}
+
+.suggestion strong {
+  color: #27313a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.suggestion small {
+  color: #8c969f;
+  font-size: 10px;
 }
 
 .top-actions {

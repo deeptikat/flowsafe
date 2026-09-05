@@ -36,6 +36,7 @@ import type {
 import {
   getWeather,
   searchLocation,
+  searchLocationSuggestions,
 } from "./weather";
 
 import type {
@@ -77,259 +78,6 @@ import type {
 
 import MapView from "./mapView";
 
-
-/* =========================================================
-   ALERT TYPE
-   ========================================================= */
-
-type AlertSeverity =
-  | "SEVERE"
-  | "HIGH"
-  | "MODERATE"
-  | "INFO";
-
-
-type AlertItem = {
-  title: string;
-  description: string;
-  severity: AlertSeverity;
-  icon: ReactNode;
-};
-
-
-/* =========================================================
-   BUILD LIVE ALERTS
-   =========================================================
-   
-   This is the SINGLE source of truth for alerts.
-
-   Both:
-   - Sidebar alert badge
-   - Alerts popup
-
-   use this exact same function.
-   ========================================================= */
-
-function buildAlerts({
-  risk,
-  weather,
-  river,
-  disaster,
-  loading,
-}: {
-  risk: RiskResult | null;
-  weather: WeatherData | null;
-  river: RiverData | null;
-  disaster: DisasterAlert | null;
-  loading: boolean;
-}): AlertItem[] {
-
-  const alerts: AlertItem[] = [];
-
-
-  /*
-   * Do not create alerts while data
-   * is still being loaded.
-   */
-
-  if (loading) {
-    return alerts;
-  }
-
-
-  /*
-   * NATURAL DISASTER ALERT
-   */
-
-  if (disaster?.active) {
-
-    alerts.push({
-
-      title:
-        disaster.title ||
-        "Active natural hazard",
-
-      description:
-        disaster.description ||
-        "An active natural hazard has been detected in the monitored area.",
-
-      severity:
-        "SEVERE",
-
-      icon:
-        <Siren size={20} />,
-
-    });
-
-  }
-
-
-  /*
-   * FLOOD RISK ALERT
-   */
-
-  if (risk) {
-
-    if (risk.score >= 75) {
-
-      alerts.push({
-
-        title:
-          "Severe flood risk",
-
-        description:
-          risk.reason?.join(". ") ||
-          "Multiple environmental indicators indicate severe flood risk.",
-
-        severity:
-          "SEVERE",
-
-        icon:
-          <AlertTriangle size={20} />,
-
-      });
-
-    } else if (risk.score >= 50) {
-
-      alerts.push({
-
-        title:
-          "High flood risk",
-
-        description:
-          risk.reason?.join(". ") ||
-          "Current environmental conditions indicate elevated flood risk.",
-
-        severity:
-          "HIGH",
-
-        icon:
-          <AlertTriangle size={20} />,
-
-      });
-
-    } else if (risk.score >= 25) {
-
-      alerts.push({
-
-        title:
-          "Moderate flood risk",
-
-        description:
-          risk.reason?.join(". ") ||
-          "Some environmental indicators are contributing to flood risk.",
-
-        severity:
-          "MODERATE",
-
-        icon:
-          <AlertTriangle size={20} />,
-
-      });
-
-    }
-
-  }
-
-
-  /*
-   * HEAVY RAIN ALERT
-   */
-
-  if (
-    weather &&
-    weather.rainfall >= 25
-  ) {
-
-    alerts.push({
-
-      title:
-        "Heavy rainfall detected",
-
-      description:
-        `${weather.rainfall} mm of current precipitation is contributing to elevated flood potential.`,
-
-      severity:
-        weather.rainfall >= 50
-          ? "SEVERE"
-          : "HIGH",
-
-      icon:
-        <CloudRain size={20} />,
-
-    });
-
-  }
-
-
-  /*
-   * HIGH RAIN PROBABILITY
-   */
-
-  if (
-    weather &&
-    weather.rainProbability >= 60
-  ) {
-
-    alerts.push({
-
-      title:
-        "Rainfall likely to continue",
-
-      description:
-        `There is a ${weather.rainProbability}% probability of rainfall in the near-term forecast.`,
-
-      severity:
-        weather.rainProbability >= 80
-          ? "HIGH"
-          : "MODERATE",
-
-      icon:
-        <Droplets size={20} />,
-
-    });
-
-  }
-
-
-  /*
-   * RISING RIVER ALERT
-   */
-
-  if (
-    river?.available &&
-    river.trend === "RISING"
-  ) {
-
-    alerts.push({
-
-      title:
-        "River discharge rising",
-
-      description:
-        `Current river discharge is ${river.currentDischarge.toFixed(
-          1
-        )} m³/s and the monitored trend is rising.`,
-
-      severity:
-        "HIGH",
-
-      icon:
-        <Waves size={20} />,
-
-    });
-
-  }
-
-
-  return alerts;
-
-}
-
-
-/* =========================================================
-   APP
-   ========================================================= */
 
 function App() {
 
@@ -374,31 +122,45 @@ function App() {
   const [searchText, setSearchText] =
     useState("Thane");
 
+  const [suggestions, setSuggestions] =
+    useState<LocationData[]>([]);
+
+  const [activeSuggestion, setActiveSuggestion] =
+    useState(-1);
+
   const [loading, setLoading] =
     useState(true);
 
   const [searching, setSearching] =
     useState(false);
 
+  const [locating, setLocating] =
+    useState(false);
+
   const [error, setError] =
     useState("");
 
+  useEffect(() => {
+    const query = searchText.trim();
 
-  /*
-   * LIVE ALERTS
-   *
-   * This automatically recalculates whenever
-   * weather, risk, river, disaster or loading changes.
-   */
+    if (query.length < 2 || query === location.name) {
+      setSuggestions([]);
+      return;
+    }
 
-  const alerts =
-    buildAlerts({
-      risk,
-      weather,
-      river,
-      disaster,
-      loading,
-    });
+    const timeout = window.setTimeout(async () => {
+      try {
+        const results = await searchLocationSuggestions(query);
+        setSuggestions(results);
+        setActiveSuggestion(-1);
+      } catch (err) {
+        console.error(err);
+        setSuggestions([]);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchText, location.name]);
 
 
   /*
@@ -617,6 +379,18 @@ function App() {
 
   }
 
+  function selectSuggestion(suggestion: LocationData) {
+    setSearchText(suggestion.name);
+    setSuggestions([]);
+    setActiveSuggestion(-1);
+    setLocation(suggestion);
+    void loadData(
+      suggestion.latitude,
+      suggestion.longitude,
+      suggestion.country
+    );
+  }
+
 
   /*
    * SEARCH ENTER
@@ -627,94 +401,293 @@ function App() {
   ) {
 
     if (event.key === "Enter") {
-      handleSearch();
+      event.preventDefault();
+      if (activeSuggestion >= 0 && suggestions[activeSuggestion]) {
+        selectSuggestion(suggestions[activeSuggestion]);
+      } else {
+        void handleSearch();
+      }
+    }
+
+    if (event.key === "ArrowDown" && suggestions.length > 0) {
+      event.preventDefault();
+      setActiveSuggestion((current) =>
+        current < suggestions.length - 1 ? current + 1 : 0
+      );
+    }
+
+    if (event.key === "ArrowUp" && suggestions.length > 0) {
+      event.preventDefault();
+      setActiveSuggestion((current) =>
+        current > 0 ? current - 1 : suggestions.length - 1
+      );
+    }
+
+    if (event.key === "Escape") {
+      setSuggestions([]);
+      setActiveSuggestion(-1);
     }
 
   }
 
 
   /*
-   * USE MY LOCATION
+   * REVERSE GEOCODE GPS LOCATION
+   *
+   * We use OpenStreetMap Nominatim to turn
+   * the browser's latitude/longitude into
+   * a readable city and country.
    */
 
-  function useMyLocation() {
+  async function reverseGeocode(
+    latitude: number,
+    longitude: number
+  ): Promise<LocationData> {
 
-    if (!navigator.geolocation) {
+    const url =
+      `https://nominatim.openstreetmap.org/reverse` +
+      `?format=jsonv2` +
+      `&lat=${encodeURIComponent(latitude)}` +
+      `&lon=${encodeURIComponent(longitude)}` +
+      `&zoom=10` +
+      `&addressdetails=1`;
 
-      setError(
-        "Geolocation is not supported by your browser."
+    const response =
+      await fetch(url, {
+        headers: {
+          Accept:
+            "application/json",
+        },
+      });
+
+    if (!response.ok) {
+
+      throw new Error(
+        "Reverse geocoding failed."
       );
-
-      return;
 
     }
 
-    navigator.geolocation.getCurrentPosition(
+    const data =
+      await response.json();
 
-      async (position) => {
+    const address =
+      data.address || {};
 
-        const latitude =
-          position.coords.latitude;
+    const city =
+      address.city ||
+      address.town ||
+      address.municipality ||
+      address.village ||
+      address.county ||
+      "Current location";
 
-        const longitude =
-          position.coords.longitude;
+    const country =
+      address.country ||
+      "Unknown";
+
+    return {
+      name: city,
+      country,
+      latitude,
+      longitude,
+    };
+
+  }
+
+
+ /*
+ * USE MY LOCATION
+ */
+
+function useMyLocation() {
+
+  if (!navigator.geolocation) {
+
+    setError(
+      "Geolocation is not supported by your browser."
+    );
+
+    return;
+
+  }
+
+  setError("");
+  setLocating(true);
+
+  navigator.geolocation.getCurrentPosition(
+
+    async (position) => {
+
+      const latitude =
+        position.coords.latitude;
+
+      const longitude =
+        position.coords.longitude;
+
+      try {
+
+        /*
+         * GPS successfully returned coordinates.
+         *
+         * Now reverse-geocode those coordinates
+         * into a readable city/country.
+         */
+
+        const result =
+          await reverseGeocode(
+            latitude,
+            longitude
+          );
+
+        setLocation(result);
+
+        setSearchText(
+          result.name
+        );
+
+        /*
+         * Load weather, disaster and river
+         * information for the actual GPS location.
+         */
+
+        await loadData(
+          latitude,
+          longitude,
+          result.country
+        );
+
+        /*
+         * Refresh emergency places if the
+         * emergency panel is already open.
+         */
+
+        if (emergencyOpen) {
+
+          await loadPlaces(
+            latitude,
+            longitude
+          );
+
+        }
+
+      } catch (err) {
+
+        console.error(
+          "Location processing failed:",
+          err
+        );
+
+        /*
+         * GPS worked even if reverse geocoding
+         * failed.
+         *
+         * Therefore we still use the actual
+         * coordinates.
+         */
+
+        setLocation({
+
+          name:
+            "Current location",
+
+          country:
+            "India",
+
+          latitude,
+
+          longitude,
+
+        });
+
+        setSearchText(
+          "Current location"
+        );
 
         try {
-
-          setLoading(true);
-
-          const result =
-            await searchLocation(
-              `${latitude},${longitude}`
-            );
-
-          setLocation(result);
-
-          setSearchText(
-            result.name
-          );
 
           await loadData(
             latitude,
             longitude,
-            result.country
+            "India"
           );
 
-          if (emergencyOpen) {
+        } catch (dataError) {
 
-            await loadPlaces(
-              latitude,
-              longitude
-            );
-
-          }
-
-        } catch (err) {
-
-          console.error(err);
+          console.error(
+            "Environmental data failed:",
+            dataError
+          );
 
           setError(
-            "Could not determine your location."
+            "Your location was detected, but environmental data could not be loaded."
           );
-
-          setLoading(false);
 
         }
 
-      },
+      } finally {
 
-      () => {
+        setLocating(false);
+
+      }
+
+    },
+
+    (error) => {
+
+      console.error(
+        "Geolocation error:",
+        error
+      );
+
+      setLocating(false);
+
+      if (
+        error.code ===
+        error.PERMISSION_DENIED
+      ) {
 
         setError(
-          "Location permission was denied."
+          "Location permission was denied. Please allow location access for this site in your browser."
+        );
+
+      } else if (
+        error.code ===
+        error.POSITION_UNAVAILABLE
+      ) {
+
+        setError(
+          "Your device could not determine your location. Turn on Windows Location Services and try again."
+        );
+
+      } else if (
+        error.code ===
+        error.TIMEOUT
+      ) {
+
+        setError(
+          "Location detection timed out. Please try again."
+        );
+
+      } else {
+
+        setError(
+          "Could not determine your location. Please try again."
         );
 
       }
 
-    );
+    },
 
-  }
+    {
+      enableHighAccuracy: true,
+      timeout: 30000,
+      maximumAge: 0,
+    }
 
+  );
+
+}
 
   /*
    * INITIAL DATA LOAD
@@ -847,16 +820,10 @@ function App() {
           </p>
 
 
-          {/* LIVE ALERTS */}
-
           <NavItem
             icon={<Bell size={18} />}
             text="Alerts"
-            badge={
-              loading || alerts.length === 0
-                ? undefined
-                : String(alerts.length)
-            }
+            badge="3"
             onClick={openAlerts}
           />
 
@@ -869,8 +836,6 @@ function App() {
             }
           />
 
-
-          {/* EMERGENCY */}
 
           <button
             className="nav-item"
@@ -972,6 +937,34 @@ function App() {
               placeholder="Search a city..."
             />
 
+            {suggestions.length > 0 && (
+              <div className="search-suggestions">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    className={
+                      index === activeSuggestion
+                        ? "suggestion active"
+                        : "suggestion"
+                    }
+                    key={`${suggestion.name}-${suggestion.latitude}`}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => selectSuggestion(suggestion)}
+                    type="button"
+                  >
+                    <MapPin size={14} />
+                    <span>
+                      <strong>{suggestion.name}</strong>
+                      <small>
+                        {[suggestion.admin1, suggestion.country]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {searching && (
 
               <span className="search-loading">
@@ -990,11 +983,30 @@ function App() {
               onClick={
                 useMyLocation
               }
+              disabled={locating}
+              style={{
+                opacity:
+                  locating ? 0.7 : 1,
+                cursor:
+                  locating
+                    ? "wait"
+                    : "pointer",
+              }}
             >
 
-              <Navigation size={17} />
+              <Navigation
+                size={17}
+                style={{
+                  animation:
+                    locating
+                      ? "spin 1s linear infinite"
+                      : "none",
+                }}
+              />
 
-              Use my location
+              {locating
+                ? "Locating..."
+                : "Use my location"}
 
             </button>
 
@@ -1006,9 +1018,7 @@ function App() {
 
               <Bell size={19} />
 
-              {alerts.length > 0 && !loading && (
-                <span className="notification-dot"></span>
-              )}
+              <span className="notification-dot"></span>
 
             </button>
 
@@ -1598,8 +1608,8 @@ function App() {
                           const probability =
                             weather
                               .hourlyRainProbability[
-                              index
-                            ] || 0;
+                                index
+                              ] || 0;
 
                           return (
 
@@ -2103,20 +2113,201 @@ function AlertsPanel({
   onEmergency: () => void;
 }) {
 
+  const alerts: {
+    title: string;
+    description: string;
+    severity: "SEVERE" | "HIGH" | "MODERATE" | "INFO";
+    icon: ReactNode;
+  }[] = [];
 
-  /*
-   * Use the EXACT SAME alert builder
-   * as the sidebar badge.
-   */
 
-  const alerts =
-    buildAlerts({
-      risk,
-      weather,
-      river,
-      disaster,
-      loading,
+  if (disaster?.active) {
+
+    alerts.push({
+
+      title:
+        disaster.title ||
+        "Active natural hazard",
+
+      description:
+        disaster.description ||
+        "An active natural hazard has been detected in the monitored area.",
+
+      severity:
+        "SEVERE",
+
+      icon:
+        <Siren size={20} />,
+
     });
+
+  }
+
+
+  if (!loading && risk) {
+
+    if (risk.score >= 75) {
+
+      alerts.push({
+
+        title:
+          "Severe flood risk",
+
+        description:
+          risk.reason?.join(". ") ||
+          "Multiple environmental indicators indicate severe flood risk.",
+
+        severity:
+          "SEVERE",
+
+        icon:
+          <AlertTriangle size={20} />,
+
+      });
+
+    } else if (risk.score >= 50) {
+
+      alerts.push({
+
+        title:
+          "High flood risk",
+
+        description:
+          risk.reason?.join(". ") ||
+          "Current environmental conditions indicate elevated flood risk.",
+
+        severity:
+          "HIGH",
+
+        icon:
+          <AlertTriangle size={20} />,
+
+      });
+
+    } else if (risk.score >= 25) {
+
+      alerts.push({
+
+        title:
+          "Moderate flood risk",
+
+        description:
+          risk.reason?.join(". ") ||
+          "Some environmental indicators are contributing to flood risk.",
+
+        severity:
+          "MODERATE",
+
+        icon:
+          <AlertTriangle size={20} />,
+
+      });
+
+    }
+
+  }
+
+
+  if (
+    weather &&
+    weather.rainfall >= 25
+  ) {
+
+    alerts.push({
+
+      title:
+        "Heavy rainfall detected",
+
+      description:
+        `${weather.rainfall} mm of current precipitation is contributing to elevated flood potential.`,
+
+      severity:
+        weather.rainfall >= 50
+          ? "SEVERE"
+          : "HIGH",
+
+      icon:
+        <CloudRain size={20} />,
+
+    });
+
+  }
+
+
+  if (
+    weather &&
+    weather.rainProbability >= 60
+  ) {
+
+    alerts.push({
+
+      title:
+        "Rainfall likely to continue",
+
+      description:
+        `There is a ${weather.rainProbability}% probability of rainfall in the near-term forecast.`,
+
+      severity:
+        weather.rainProbability >= 80
+          ? "HIGH"
+          : "MODERATE",
+
+      icon:
+        <Droplets size={20} />,
+
+    });
+
+  }
+
+
+  if (
+    river?.available &&
+    river.trend === "RISING"
+  ) {
+
+    alerts.push({
+
+      title:
+        "River discharge rising",
+
+      description:
+        `Current river discharge is ${river.currentDischarge.toFixed(
+          1
+        )} m³/s and the monitored trend is rising.`,
+
+      severity:
+        "HIGH",
+
+      icon:
+        <Waves size={20} />,
+
+    });
+
+  }
+
+
+  if (
+    !loading &&
+    alerts.length === 0
+  ) {
+
+    alerts.push({
+
+      title:
+        "No active alerts",
+
+      description:
+        `Current environmental conditions around ${locationName} remain within monitored ranges.`,
+
+      severity:
+        "INFO",
+
+      icon:
+        <CheckCircle size={20} />,
+
+    });
+
+  }
 
 
   return (
@@ -2150,8 +2341,6 @@ function AlertsPanel({
           event.stopPropagation()
         }
       >
-
-        {/* HEADER */}
 
         <div
           style={{
@@ -2266,8 +2455,6 @@ function AlertsPanel({
         </div>
 
 
-        {/* STATUS */}
-
         <div
           style={{
             margin: "20px 24px",
@@ -2340,8 +2527,6 @@ function AlertsPanel({
 
         </div>
 
-
-        {/* ALERT LIST */}
 
         <div
           style={{
@@ -2429,51 +2614,6 @@ function AlertsPanel({
 
             </div>
 
-          ) : alerts.length === 0 ? (
-
-            <div
-              style={{
-                padding: "35px 20px",
-                textAlign: "center",
-                background: "#f0fdf4",
-                border:
-                  "1px solid #bbf7d0",
-                borderRadius: "14px",
-                color: "#166534",
-              }}
-            >
-
-              <CheckCircle
-                size={30}
-                style={{
-                  marginBottom:
-                    "10px",
-                }}
-              />
-
-              <div
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 700,
-                }}
-              >
-                No active alerts
-              </div>
-
-              <div
-                style={{
-                  fontSize: "11px",
-                  marginTop: "5px",
-                  color: "#64748b",
-                }}
-              >
-                Current environmental
-                conditions are within
-                monitored ranges.
-              </div>
-
-            </div>
-
           ) : (
 
             <div
@@ -2511,8 +2651,6 @@ function AlertsPanel({
 
           )}
 
-
-          {/* RISK SCORE */}
 
           {!loading &&
             risk && (
@@ -2624,8 +2762,6 @@ function AlertsPanel({
           )}
 
 
-          {/* EMERGENCY BUTTON */}
-
           <button
             onClick={onEmergency}
             style={{
@@ -2651,8 +2787,6 @@ function AlertsPanel({
 
           </button>
 
-
-          {/* FOOTER */}
 
           <div
             style={{
