@@ -9,6 +9,7 @@ import {
 
 import {
   useEffect,
+  useRef,
 } from "react";
 
 import L from "leaflet";
@@ -25,36 +26,33 @@ type MapViewProps = {
 };
 
 
-/*
- * Fix Leaflet's default marker icon
- * when using Vite + React.
- */
+/* -----------------------------
+   LEAFLET MARKER ICON
+----------------------------- */
 
-const markerIcon =
-  new L.Icon({
-    iconUrl:
-      "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+const markerIcon = new L.Icon({
+  iconUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
 
-    iconRetinaUrl:
-      "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
 
-    shadowUrl:
-      "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  shadowUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 
-    iconSize: [25, 41],
+  iconSize: [25, 41],
 
-    iconAnchor: [12, 41],
+  iconAnchor: [12, 41],
 
-    popupAnchor: [1, -34],
+  popupAnchor: [1, -34],
 
-    shadowSize: [41, 41],
-  });
+  shadowSize: [41, 41],
+});
 
 
-/*
- * Automatically moves the map when
- * the searched location changes.
- */
+/* -----------------------------
+   MAP CONTROLLER
+----------------------------- */
 
 function MapController({
   latitude,
@@ -68,13 +66,28 @@ function MapController({
 
   useEffect(() => {
 
-    map.flyTo(
-      [latitude, longitude],
-      11,
-      {
-        duration: 1.2,
-      }
-    );
+    /*
+     * Tell Leaflet to recalculate its
+     * container size after rendering.
+     */
+
+    const timer = setTimeout(() => {
+
+      map.invalidateSize();
+
+      map.flyTo(
+        [latitude, longitude],
+        11,
+        {
+          duration: 1,
+        }
+      );
+
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+    };
 
   }, [
     latitude,
@@ -86,6 +99,68 @@ function MapController({
 }
 
 
+/* -----------------------------
+   MAP RESIZE FIX
+----------------------------- */
+
+function MapResizeFix() {
+
+  const map = useMap();
+
+  useEffect(() => {
+
+    const resizeMap = () => {
+      map.invalidateSize();
+    };
+
+    /*
+     * Initial resize.
+     */
+
+    setTimeout(
+      resizeMap,
+      100
+    );
+
+    setTimeout(
+      resizeMap,
+      500
+    );
+
+    setTimeout(
+      resizeMap,
+      1000
+    );
+
+    /*
+     * Resize whenever the
+     * browser window changes.
+     */
+
+    window.addEventListener(
+      "resize",
+      resizeMap
+    );
+
+    return () => {
+
+      window.removeEventListener(
+        "resize",
+        resizeMap
+      );
+
+    };
+
+  }, [map]);
+
+  return null;
+}
+
+
+/* -----------------------------
+   MAIN MAP
+----------------------------- */
+
 export default function MapView({
   latitude,
   longitude,
@@ -94,10 +169,6 @@ export default function MapView({
   locationName,
 }: MapViewProps) {
 
-  /*
-   * Determine the flood-risk
-   * visualization radius.
-   */
 
   const radius =
     riskLevel === "SEVERE"
@@ -109,16 +180,27 @@ export default function MapView({
           : 3000;
 
 
+  const fillOpacity =
+    riskLevel === "SEVERE"
+      ? 0.30
+      : riskLevel === "HIGH"
+        ? 0.25
+        : riskLevel === "MODERATE"
+          ? 0.18
+          : 0.10;
+
+
   return (
 
     <div
       style={{
         width: "100%",
-        height: "100%",
-        minHeight: "420px",
+        height: "500px",
+        minHeight: "500px",
         position: "relative",
         overflow: "hidden",
         borderRadius: "16px",
+        background: "#e2e8f0",
       }}
     >
 
@@ -132,8 +214,11 @@ export default function MapView({
         style={{
           width: "100%",
           height: "100%",
+          minHeight: "500px",
         }}
       >
+
+        <MapResizeFix />
 
         <MapController
           latitude={latitude}
@@ -141,13 +226,20 @@ export default function MapView({
         />
 
 
+        {/* -----------------------------
+            OPENSTREETMAP
+        ----------------------------- */}
+
         <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
+          attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
 
 
-        {/* LOCATION MARKER */}
+        {/* -----------------------------
+            LOCATION MARKER
+        ----------------------------- */}
 
         <Marker
           position={[
@@ -159,30 +251,52 @@ export default function MapView({
 
           <Popup>
 
-            <strong>
-              {locationName}
-            </strong>
+            <div
+              style={{
+                minWidth: "150px",
+              }}
+            >
 
-            <br />
+              <strong
+                style={{
+                  fontSize: "15px",
+                }}
+              >
+                {locationName}
+              </strong>
 
-            Flood risk:{" "}
+              <br />
 
-            <strong>
-              {riskLevel}
-            </strong>
+              <span>
+                Flood risk:
+              </span>
 
-            <br />
+              <strong>
+                {" "}
+                {riskLevel}
+              </strong>
 
-            Risk score:{" "}
+              <br />
 
-            {riskScore}/100
+              <span>
+                Risk score:
+              </span>
+
+              <strong>
+                {" "}
+                {riskScore}/100
+              </strong>
+
+            </div>
 
           </Popup>
 
         </Marker>
 
 
-        {/* FLOOD RISK AREA */}
+        {/* -----------------------------
+            FLOOD RISK AREA
+        ----------------------------- */}
 
         <Circle
           center={[
@@ -191,17 +305,8 @@ export default function MapView({
           ]}
           radius={radius}
           pathOptions={{
-            fillOpacity:
-              riskLevel === "SEVERE"
-                ? 0.3
-                : riskLevel === "HIGH"
-                  ? 0.25
-                  : riskLevel === "MODERATE"
-                    ? 0.18
-                    : 0.1,
-
+            fillOpacity,
             opacity: 0.7,
-
             weight: 2,
           }}
         />
@@ -209,7 +314,9 @@ export default function MapView({
       </MapContainer>
 
 
-      {/* MAP OVERLAY */}
+      {/* -----------------------------
+          MAP STATUS
+      ----------------------------- */}
 
       <div
         style={{
@@ -218,7 +325,7 @@ export default function MapView({
           right: "16px",
           zIndex: 1000,
           background:
-            "rgba(255,255,255,0.95)",
+            "rgba(255,255,255,0.96)",
           border:
             "1px solid #e2e8f0",
           borderRadius: "12px",
@@ -226,6 +333,7 @@ export default function MapView({
             "10px 13px",
           boxShadow:
             "0 5px 20px rgba(15,23,42,0.12)",
+          pointerEvents: "none",
         }}
       >
 
@@ -242,6 +350,7 @@ export default function MapView({
         >
           FLOOD RISK
         </div>
+
 
         <div
           style={{
@@ -268,6 +377,7 @@ export default function MapView({
             }}
           />
 
+
           <strong
             style={{
               fontSize: "14px",
@@ -275,6 +385,7 @@ export default function MapView({
           >
             {riskLevel}
           </strong>
+
 
           <span
             style={{

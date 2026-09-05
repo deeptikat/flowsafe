@@ -19,6 +19,11 @@ import {
   Flame,
   MapPin,
   Siren,
+  Clock,
+  CheckCircle,
+  History as HistoryIcon,
+  Trash2,
+  CalendarDays,
 } from "lucide-react";
 
 import {
@@ -76,6 +81,27 @@ import type {
 import MapView from "./mapView";
 
 
+/* =========================================================
+   HISTORY TYPE
+   ========================================================= */
+
+type HistoryEntry = {
+  id: string;
+  locationName: string;
+  country: string;
+  riskLevel: string;
+  riskScore: number;
+  rainfall: number;
+  rainProbability: number;
+  riverTrend: string;
+  timestamp: string;
+};
+
+
+/* =========================================================
+   APP
+   ========================================================= */
+
 function App() {
 
   const [sidebarOpen, setSidebarOpen] =
@@ -86,6 +112,37 @@ function App() {
 
   const [settingsOpen, setSettingsOpen] =
     useState(false);
+
+  const [alertsOpen, setAlertsOpen] =
+    useState(false);
+
+  const [historyOpen, setHistoryOpen] =
+    useState(false);
+
+  const [history, setHistory] =
+    useState<HistoryEntry[]>(() => {
+
+      try {
+
+        const saved =
+          localStorage.getItem(
+            "flowsafe-history"
+          );
+
+        if (!saved) {
+          return [];
+        }
+
+        return JSON.parse(saved);
+
+      } catch {
+
+        return [];
+
+      }
+
+    });
+
 
   const [weather, setWeather] =
     useState<WeatherData | null>(null);
@@ -126,9 +183,121 @@ function App() {
     useState("");
 
 
-  /*
-   * SIDEBAR NAVIGATION
-   */
+  /* =======================================================
+     SAVE HISTORY TO LOCAL STORAGE
+     ======================================================= */
+
+  useEffect(() => {
+
+    try {
+
+      localStorage.setItem(
+        "flowsafe-history",
+        JSON.stringify(history)
+      );
+
+    } catch (err) {
+
+      console.error(
+        "Unable to save history:",
+        err
+      );
+
+    }
+
+  }, [history]);
+
+
+  /* =======================================================
+     ADD HISTORY ENTRY
+     ======================================================= */
+
+  function addHistoryEntry(
+    locationData: LocationData,
+    weatherData: WeatherData,
+    riskResult: RiskResult,
+    riverData: RiverData
+  ) {
+
+    const entry: HistoryEntry = {
+
+      id:
+        `${Date.now()}-${Math.random()}`,
+
+      locationName:
+        locationData.name,
+
+      country:
+        locationData.country,
+
+      riskLevel:
+        riskResult.level,
+
+      riskScore:
+        riskResult.score,
+
+      rainfall:
+        weatherData.rainfall,
+
+      rainProbability:
+        weatherData.rainProbability,
+
+      riverTrend:
+        riverData.trend,
+
+      timestamp:
+        new Date().toISOString(),
+
+    };
+
+
+    setHistory((previous) => {
+
+      /*
+       * If the same location was checked repeatedly,
+       * keep the new result but limit the history to
+       * the latest 30 checks.
+       */
+
+      return [
+        entry,
+        ...previous,
+      ].slice(0, 30);
+
+    });
+
+  }
+
+
+  /* =======================================================
+     CLEAR HISTORY
+     ======================================================= */
+
+  function clearHistory() {
+
+    setHistory([]);
+
+    try {
+
+      localStorage.removeItem(
+        "flowsafe-history"
+      );
+
+    } catch (err) {
+
+      console.error(
+        "Unable to clear history:",
+        err
+      );
+
+    }
+
+  }
+
+
+  /* =======================================================
+     SIDEBAR NAVIGATION
+     ======================================================= */
 
   function scrollToSection(
     id: string
@@ -147,8 +316,37 @@ function App() {
     }
 
     setSidebarOpen(false);
+
   }
 
+
+  /* =======================================================
+     OPEN ALERTS
+     ======================================================= */
+
+  function openAlerts() {
+
+    setAlertsOpen(true);
+    setSidebarOpen(false);
+
+  }
+
+
+  /* =======================================================
+     OPEN HISTORY
+     ======================================================= */
+
+  function openHistory() {
+
+    setHistoryOpen(true);
+    setSidebarOpen(false);
+
+  }
+
+
+  /* =======================================================
+     LOAD ENVIRONMENTAL DATA
+     ======================================================= */
 
   async function loadData(
     latitude: number,
@@ -185,11 +383,19 @@ function App() {
 
       ]);
 
-      setWeather(weatherData);
 
-      setDisaster(disasterData);
+      setWeather(
+        weatherData
+      );
 
-      setRiver(riverData);
+      setDisaster(
+        disasterData
+      );
+
+      setRiver(
+        riverData
+      );
+
 
       const riskResult =
         calculateFloodRisk(
@@ -202,7 +408,42 @@ function App() {
           riverData.trend
         );
 
-      setRisk(riskResult);
+
+      setRisk(
+        riskResult
+      );
+
+
+      /*
+       * Save this successful environmental
+       * check to history.
+       *
+       * We construct the location object
+       * from the coordinates because this
+       * function can also be called directly.
+       */
+
+      addHistoryEntry(
+
+        {
+          name:
+            location.name,
+          country:
+            country,
+          latitude:
+            latitude,
+          longitude:
+            longitude,
+        },
+
+        weatherData,
+
+        riskResult,
+
+        riverData
+
+      );
+
 
     } catch (err) {
 
@@ -220,6 +461,10 @@ function App() {
 
   }
 
+
+  /* =======================================================
+     LOAD EMERGENCY PLACES
+     ======================================================= */
 
   async function loadPlaces(
     latitude: number,
@@ -253,6 +498,10 @@ function App() {
   }
 
 
+  /* =======================================================
+     OPEN EMERGENCY
+     ======================================================= */
+
   async function openEmergency() {
 
     setEmergencyOpen(true);
@@ -264,6 +513,10 @@ function App() {
 
   }
 
+
+  /* =======================================================
+     SEARCH LOCATION
+     ======================================================= */
 
   async function handleSearch() {
 
@@ -281,13 +534,89 @@ function App() {
           searchText
         );
 
-      setLocation(result);
 
-      await loadData(
-        result.latitude,
-        result.longitude,
-        result.country
+      setLocation(
+        result
       );
+
+
+      /*
+       * loadData uses the global location state
+       * for history. Because React state updates
+       * are asynchronous, temporarily assign the
+       * new location manually after the data call.
+       *
+       * The data itself still uses the searched
+       * coordinates.
+       */
+
+      setLoading(true);
+
+      const [
+        weatherData,
+        disasterData,
+        riverData,
+      ] = await Promise.all([
+
+        getWeather(
+          result.latitude,
+          result.longitude
+        ),
+
+        getDisasterAlert(
+          result.country,
+          result.latitude,
+          result.longitude
+        ),
+
+        getRiverData(
+          result.latitude,
+          result.longitude
+        ),
+
+      ]);
+
+
+      setWeather(
+        weatherData
+      );
+
+      setDisaster(
+        disasterData
+      );
+
+      setRiver(
+        riverData
+      );
+
+
+      const riskResult =
+        calculateFloodRisk(
+          weatherData.rainfall,
+          weatherData.rainProbability,
+          weatherData.humidity,
+          disasterData.active,
+          riverData.currentDischarge,
+          riverData.averageDischarge,
+          riverData.trend
+        );
+
+
+      setRisk(
+        riskResult
+      );
+
+
+      addHistoryEntry(
+        result,
+        weatherData,
+        riskResult,
+        riverData
+      );
+
+
+      setLoading(false);
+
 
       if (emergencyOpen) {
 
@@ -306,6 +635,8 @@ function App() {
         "Location not found. Try another city."
       );
 
+      setLoading(false);
+
     } finally {
 
       setSearching(false);
@@ -315,16 +646,26 @@ function App() {
   }
 
 
+  /* =======================================================
+     SEARCH ENTER
+     ======================================================= */
+
   function handleSearchKeyDown(
     event: KeyboardEvent<HTMLInputElement>
   ) {
 
     if (event.key === "Enter") {
+
       handleSearch();
+
     }
 
   }
 
+
+  /* =======================================================
+     USE MY LOCATION
+     ======================================================= */
 
   function useMyLocation() {
 
@@ -338,6 +679,7 @@ function App() {
 
     }
 
+
     navigator.geolocation.getCurrentPosition(
 
       async (position) => {
@@ -348,6 +690,7 @@ function App() {
         const longitude =
           position.coords.longitude;
 
+
         try {
 
           setLoading(true);
@@ -357,17 +700,81 @@ function App() {
               `${latitude},${longitude}`
             );
 
-          setLocation(result);
+
+          setLocation(
+            result
+          );
 
           setSearchText(
             result.name
           );
 
-          await loadData(
-            latitude,
-            longitude,
-            result.country
+
+          const [
+            weatherData,
+            disasterData,
+            riverData,
+          ] = await Promise.all([
+
+            getWeather(
+              latitude,
+              longitude
+            ),
+
+            getDisasterAlert(
+              result.country,
+              latitude,
+              longitude
+            ),
+
+            getRiverData(
+              latitude,
+              longitude
+            ),
+
+          ]);
+
+
+          setWeather(
+            weatherData
           );
+
+          setDisaster(
+            disasterData
+          );
+
+          setRiver(
+            riverData
+          );
+
+
+          const riskResult =
+            calculateFloodRisk(
+              weatherData.rainfall,
+              weatherData.rainProbability,
+              weatherData.humidity,
+              disasterData.active,
+              riverData.currentDischarge,
+              riverData.averageDischarge,
+              riverData.trend
+            );
+
+
+          setRisk(
+            riskResult
+          );
+
+
+          addHistoryEntry(
+            result,
+            weatherData,
+            riskResult,
+            riverData
+          );
+
+
+          setLoading(false);
+
 
           if (emergencyOpen) {
 
@@ -405,6 +812,10 @@ function App() {
   }
 
 
+  /* =======================================================
+     INITIAL DATA LOAD
+     ======================================================= */
+
   useEffect(() => {
 
     loadData(
@@ -434,7 +845,10 @@ function App() {
 
     <div className="app">
 
-      {/* SIDEBAR */}
+
+      {/* ===================================================
+          SIDEBAR
+          =================================================== */}
 
       <aside
         className={`sidebar ${
@@ -445,8 +859,11 @@ function App() {
         <div className="logo">
 
           <div className="logo-icon">
+
             <Waves size={21} />
+
           </div>
+
 
           <div>
 
@@ -459,6 +876,7 @@ function App() {
             </span>
 
           </div>
+
 
           <button
             className="mobile-close"
@@ -480,44 +898,59 @@ function App() {
             MONITOR
           </p>
 
+
           <NavItem
             icon={<Home size={18} />}
             text="Overview"
             active
             onClick={() =>
-              scrollToSection("overview")
+              scrollToSection(
+                "overview"
+              )
             }
           />
+
 
           <NavItem
             icon={<Map size={18} />}
             text="Live Map"
             onClick={() =>
-              scrollToSection("map-section")
+              scrollToSection(
+                "map-section"
+              )
             }
           />
+
 
           <NavItem
             icon={<Gauge size={18} />}
             text="Flood Risk"
             onClick={() =>
-              scrollToSection("risk-section")
+              scrollToSection(
+                "risk-section"
+              )
             }
           />
+
 
           <NavItem
             icon={<CloudRain size={18} />}
             text="Weather"
             onClick={() =>
-              scrollToSection("weather-section")
+              scrollToSection(
+                "weather-section"
+              )
             }
           />
+
 
           <NavItem
             icon={<Waves size={18} />}
             text="River Monitor"
             onClick={() =>
-              scrollToSection("river-section")
+              scrollToSection(
+                "river-section"
+              )
             }
           />
 
@@ -526,22 +959,25 @@ function App() {
             RESPONSE
           </p>
 
+
           <NavItem
             icon={<Bell size={18} />}
             text="Alerts"
             badge="3"
-            onClick={() =>
-              scrollToSection("alert-section")
-            }
+            onClick={openAlerts}
           />
+
 
           <NavItem
             icon={<Activity size={18} />}
             text="Reports"
             onClick={() =>
-              scrollToSection("reports-section")
+              scrollToSection(
+                "reports-section"
+              )
             }
           />
+
 
           <button
             className="nav-item"
@@ -561,18 +997,20 @@ function App() {
             ANALYTICS
           </p>
 
+
           <NavItem
-            icon={<Activity size={18} />}
-            text="History"
-            onClick={() =>
-              scrollToSection("history-section")
+            icon={
+              <HistoryIcon size={18} />
             }
+            text="History"
+            onClick={openHistory}
           />
 
 
           <p className="nav-label">
             SYSTEM
           </p>
+
 
           <NavItem
             icon={<Settings size={18} />}
@@ -606,7 +1044,9 @@ function App() {
       </aside>
 
 
-      {/* MAIN */}
+      {/* ===================================================
+          MAIN
+          =================================================== */}
 
       <main className="main">
 
@@ -641,6 +1081,7 @@ function App() {
               placeholder="Search a city..."
             />
 
+
             {searching && (
 
               <span className="search-loading">
@@ -670,7 +1111,7 @@ function App() {
 
             <button
               className="icon-button"
-              onClick={openEmergency}
+              onClick={openAlerts}
             >
 
               <Bell size={19} />
@@ -709,6 +1150,7 @@ function App() {
           className="content"
           id="overview"
         >
+
 
           {/* PAGE HEADING */}
 
@@ -1040,6 +1482,7 @@ function App() {
                   }
                 />
 
+
                 <Metric
                   icon={
                     <CloudRain size={17} />
@@ -1052,6 +1495,7 @@ function App() {
                   }
                 />
 
+
                 <Metric
                   icon={
                     <Navigation size={17} />
@@ -1063,6 +1507,7 @@ function App() {
                       : `${weather?.windSpeed ?? 0} km/h`
                   }
                 />
+
 
                 <Metric
                   icon={
@@ -1259,11 +1704,13 @@ function App() {
                               )
                             );
 
+
                           const probability =
                             weather
                               .hourlyRainProbability[
                               index
                             ] || 0;
+
 
                           return (
 
@@ -1469,7 +1916,7 @@ function App() {
           </div>
 
 
-          {/* MAP */}
+          {/* LIVE MAP */}
 
           <div
             className="card map-card"
@@ -1490,6 +1937,7 @@ function App() {
                 </h3>
 
               </div>
+
 
               <button
                 className="outline-button"
@@ -1527,21 +1975,14 @@ function App() {
 
           </div>
 
-
-          {/* HIDDEN ANCHOR FOR SETTINGS */}
-
-          <div
-            style={{
-              height: "1px",
-            }}
-          />
-
         </section>
 
       </main>
 
 
-      {/* SETTINGS PANEL */}
+      {/* ===================================================
+          SETTINGS
+          =================================================== */}
 
       {settingsOpen && (
 
@@ -1557,7 +1998,54 @@ function App() {
       )}
 
 
-      {/* EMERGENCY PANEL */}
+      {/* ===================================================
+          ALERTS
+          =================================================== */}
+
+      {alertsOpen && (
+
+        <AlertsPanel
+          locationName={
+            location.name
+          }
+          risk={risk}
+          riskLevel={riskLevel}
+          weather={weather}
+          river={river}
+          disaster={disaster}
+          loading={loading}
+          onClose={() =>
+            setAlertsOpen(false)
+          }
+          onEmergency={() => {
+            setAlertsOpen(false);
+            openEmergency();
+          }}
+        />
+
+      )}
+
+
+      {/* ===================================================
+          HISTORY
+          =================================================== */}
+
+      {historyOpen && (
+
+        <HistoryPanel
+          history={history}
+          onClose={() =>
+            setHistoryOpen(false)
+          }
+          onClear={clearHistory}
+        />
+
+      )}
+
+
+      {/* ===================================================
+          EMERGENCY
+          =================================================== */}
 
       {emergencyOpen && (
 
@@ -1586,10 +2074,13 @@ function App() {
     </div>
 
   );
+
 }
 
 
-/* NAV ITEM */
+/* =========================================================
+   NAV ITEM
+   ========================================================= */
 
 function NavItem({
   icon,
@@ -1621,9 +2112,11 @@ function NavItem({
       </span>
 
       {badge && (
+
         <b>
           {badge}
         </b>
+
       )}
 
     </button>
@@ -1633,7 +2126,9 @@ function NavItem({
 }
 
 
-/* METRIC */
+/* =========================================================
+   METRIC
+   ========================================================= */
 
 function Metric({
   icon,
@@ -1672,7 +2167,9 @@ function Metric({
 }
 
 
-/* RISK FACTOR */
+/* =========================================================
+   RISK FACTOR
+   ========================================================= */
 
 function RiskFactor({
   name,
@@ -1718,7 +2215,1798 @@ function RiskFactor({
 }
 
 
-/* SETTINGS PANEL */
+/* =========================================================
+   HISTORY PANEL
+   ========================================================= */
+
+function HistoryPanel({
+  history,
+  onClose,
+  onClear,
+}: {
+  history: HistoryEntry[];
+  onClose: () => void;
+  onClear: () => void;
+}) {
+
+  return (
+
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background:
+          "rgba(10,20,30,0.55)",
+        zIndex: 10000,
+        display: "flex",
+        justifyContent: "flex-end",
+        backdropFilter:
+          "blur(5px)",
+      }}
+      onClick={onClose}
+    >
+
+      <div
+        style={{
+          width:
+            "min(560px, 100%)",
+          height: "100%",
+          background: "#ffffff",
+          boxShadow:
+            "-20px 0 60px rgba(0,0,0,0.22)",
+          overflowY: "auto",
+        }}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
+      >
+
+        {/* HEADER */}
+
+        <div
+          style={{
+            padding: "24px",
+            borderBottom:
+              "1px solid #e5e7eb",
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "center",
+          }}
+        >
+
+          <div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "11px",
+              }}
+            >
+
+              <div
+                style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "12px",
+                  background: "#eff6ff",
+                  color: "#2563eb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+
+                <HistoryIcon size={21} />
+
+              </div>
+
+
+              <div>
+
+                <span
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing:
+                      "0.08em",
+                  }}
+                >
+                  ANALYTICS
+                </span>
+
+                <h2
+                  style={{
+                    margin:
+                      "4px 0 0",
+                    fontSize: "22px",
+                  }}
+                >
+                  History
+                </h2>
+
+              </div>
+
+            </div>
+
+
+            <p
+              style={{
+                margin:
+                  "12px 0 0",
+                color:
+                  "#64748b",
+                fontSize:
+                  "13px",
+              }}
+            >
+
+              Previous flood-risk assessments
+
+            </p>
+
+          </div>
+
+
+          <button
+            onClick={onClose}
+            style={{
+              border: "none",
+              background:
+                "#f1f5f9",
+              width: "40px",
+              height: "40px",
+              borderRadius:
+                "10px",
+              cursor:
+                "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+
+            <X size={20} />
+
+          </button>
+
+        </div>
+
+
+        {/* HISTORY CONTENT */}
+
+        <div
+          style={{
+            padding: "20px 24px 30px",
+          }}
+        >
+
+          {/* TOP BAR */}
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent:
+                "space-between",
+              marginBottom:
+                "18px",
+            }}
+          >
+
+            <div>
+
+              <strong
+                style={{
+                  fontSize: "14px",
+                }}
+              >
+                Assessment history
+              </strong>
+
+              <span
+                style={{
+                  display: "block",
+                  marginTop: "4px",
+                  fontSize: "11px",
+                  color: "#64748b",
+                }}
+              >
+
+                {history.length} recorded{" "}
+                {history.length === 1
+                  ? "assessment"
+                  : "assessments"}
+
+              </span>
+
+            </div>
+
+
+            {history.length > 0 && (
+
+              <button
+                onClick={onClear}
+                style={{
+                  border:
+                    "1px solid #fecaca",
+                  background:
+                    "#fff",
+                  color:
+                    "#dc2626",
+                  borderRadius:
+                    "9px",
+                  padding:
+                    "8px 11px",
+                  fontSize:
+                    "11px",
+                  fontWeight:
+                    700,
+                  cursor:
+                    "pointer",
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
+                  gap:
+                    "6px",
+                }}
+              >
+
+                <Trash2 size={14} />
+
+                Clear history
+
+              </button>
+
+            )}
+
+          </div>
+
+
+          {/* EMPTY STATE */}
+
+          {history.length === 0 && (
+
+            <div
+              style={{
+                padding:
+                  "55px 25px",
+                background:
+                  "#f8fafc",
+                borderRadius:
+                  "16px",
+                textAlign:
+                  "center",
+                border:
+                  "1px solid #e2e8f0",
+              }}
+            >
+
+              <div
+                style={{
+                  width:
+                    "54px",
+                  height:
+                    "54px",
+                  margin:
+                    "0 auto 14px",
+                  borderRadius:
+                    "15px",
+                  background:
+                    "#e2e8f0",
+                  color:
+                    "#64748b",
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
+                  justifyContent:
+                    "center",
+                }}
+              >
+
+                <HistoryIcon size={25} />
+
+              </div>
+
+
+              <strong
+                style={{
+                  display:
+                    "block",
+                  fontSize:
+                    "14px",
+                }}
+              >
+                No history yet
+              </strong>
+
+
+              <p
+                style={{
+                  margin:
+                    "7px auto 0",
+                  maxWidth:
+                    "300px",
+                  color:
+                    "#64748b",
+                  fontSize:
+                    "12px",
+                  lineHeight:
+                    1.5,
+                }}
+              >
+
+                Search a location or use your
+                current location to create your
+                first flood-risk assessment.
+
+              </p>
+
+            </div>
+
+          )}
+
+
+          {/* HISTORY LIST */}
+
+          {history.length > 0 && (
+
+            <div
+              style={{
+                display:
+                  "flex",
+                flexDirection:
+                  "column",
+                gap:
+                  "12px",
+              }}
+            >
+
+              {history.map(
+                (
+                  entry,
+                  index
+                ) => (
+
+                  <HistoryCard
+                    key={entry.id}
+                    entry={entry}
+                    latest={
+                      index === 0
+                    }
+                  />
+
+                )
+              )}
+
+            </div>
+
+          )}
+
+
+          {/* FOOTER */}
+
+          <div
+            style={{
+              marginTop:
+                "20px",
+              padding:
+                "14px",
+              borderRadius:
+                "12px",
+              background:
+                "#f8fafc",
+              color:
+                "#94a3b8",
+              fontSize:
+                "10px",
+              lineHeight:
+                1.5,
+              display:
+                "flex",
+              alignItems:
+                "flex-start",
+              gap:
+                "8px",
+            }}
+          >
+
+            <Clock
+              size={13}
+              style={{
+                flexShrink: 0,
+                marginTop:
+                  "1px",
+              }}
+            />
+
+            History is stored locally in your
+            browser. It contains the latest 30
+            flood-risk assessments.
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+
+/* =========================================================
+   HISTORY CARD
+   ========================================================= */
+
+function HistoryCard({
+  entry,
+  latest,
+}: {
+  entry: HistoryEntry;
+  latest: boolean;
+}) {
+
+  const severityColor =
+    entry.riskLevel === "SEVERE"
+      ? "#dc2626"
+      : entry.riskLevel === "HIGH"
+        ? "#ea580c"
+        : entry.riskLevel === "MODERATE"
+          ? "#d97706"
+          : "#16a34a";
+
+
+  const severityBackground =
+    entry.riskLevel === "SEVERE"
+      ? "#fef2f2"
+      : entry.riskLevel === "HIGH"
+        ? "#fff7ed"
+        : entry.riskLevel === "MODERATE"
+          ? "#fffbeb"
+          : "#f0fdf4";
+
+
+  const date =
+    new Date(
+      entry.timestamp
+    );
+
+
+  const formattedDate =
+    date.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
+
+
+  const formattedTime =
+    date.toLocaleTimeString(
+      "en-IN",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
+
+
+  return (
+
+    <div
+      style={{
+        border:
+          latest
+            ? "1px solid #bfdbfe"
+            : "1px solid #e2e8f0",
+        borderRadius:
+          "15px",
+        overflow:
+          "hidden",
+        background:
+          "#ffffff",
+      }}
+    >
+
+      {/* TOP */}
+
+      <div
+        style={{
+          padding:
+            "15px 16px",
+          display:
+            "flex",
+          alignItems:
+            "center",
+          justifyContent:
+            "space-between",
+          gap:
+            "12px",
+          background:
+            latest
+              ? "#f8fbff"
+              : "#ffffff",
+        }}
+      >
+
+        <div
+          style={{
+            display:
+              "flex",
+            alignItems:
+              "center",
+            gap:
+              "11px",
+            minWidth:
+              0,
+          }}
+        >
+
+          <div
+            style={{
+              width:
+                "38px",
+              height:
+                "38px",
+              flexShrink:
+                0,
+              borderRadius:
+                "10px",
+              background:
+                severityBackground,
+              color:
+                severityColor,
+              display:
+                "flex",
+              alignItems:
+                "center",
+              justifyContent:
+                "center",
+            }}
+          >
+
+            <MapPin size={19} />
+
+          </div>
+
+
+          <div
+            style={{
+              minWidth:
+                0,
+            }}
+          >
+
+            <div
+              style={{
+                display:
+                  "flex",
+                alignItems:
+                  "center",
+                gap:
+                  "7px",
+              }}
+            >
+
+              <strong
+                style={{
+                  fontSize:
+                    "13px",
+                  whiteSpace:
+                    "nowrap",
+                  overflow:
+                    "hidden",
+                  textOverflow:
+                    "ellipsis",
+                }}
+              >
+                {entry.locationName}
+              </strong>
+
+
+              {latest && (
+
+                <span
+                  style={{
+                    fontSize:
+                      "8px",
+                    fontWeight:
+                      800,
+                    color:
+                      "#2563eb",
+                    background:
+                      "#dbeafe",
+                    padding:
+                      "3px 6px",
+                    borderRadius:
+                      "20px",
+                    letterSpacing:
+                      "0.05em",
+                  }}
+                >
+                  LATEST
+                </span>
+
+              )}
+
+            </div>
+
+
+            <span
+              style={{
+                display:
+                  "block",
+                marginTop:
+                  "3px",
+                color:
+                  "#64748b",
+                fontSize:
+                  "10px",
+              }}
+            >
+
+              {entry.country}
+
+            </span>
+
+          </div>
+
+        </div>
+
+
+        {/* RISK */}
+
+        <div
+          style={{
+            textAlign:
+              "right",
+            flexShrink:
+              0,
+          }}
+        >
+
+          <strong
+            style={{
+              display:
+                "block",
+              fontSize:
+                "20px",
+              color:
+                severityColor,
+            }}
+          >
+
+            {entry.riskScore}
+
+            <span
+              style={{
+                fontSize:
+                  "10px",
+                color:
+                  "#94a3b8",
+                fontWeight:
+                  500,
+              }}
+            >
+              /100
+            </span>
+
+          </strong>
+
+
+          <span
+            style={{
+              display:
+                "inline-block",
+              marginTop:
+                "2px",
+              fontSize:
+                "8px",
+              fontWeight:
+                800,
+              color:
+                severityColor,
+              letterSpacing:
+                "0.05em",
+            }}
+          >
+
+            {entry.riskLevel}
+
+          </span>
+
+        </div>
+
+      </div>
+
+
+      {/* METRICS */}
+
+      <div
+        style={{
+          display:
+            "grid",
+          gridTemplateColumns:
+            "repeat(3, 1fr)",
+          borderTop:
+            "1px solid #f1f5f9",
+          borderBottom:
+            "1px solid #f1f5f9",
+        }}
+      >
+
+        <HistoryMetric
+          icon={
+            <Droplets size={14} />
+          }
+          label="Rainfall"
+          value={`${entry.rainfall} mm`}
+        />
+
+
+        <HistoryMetric
+          icon={
+            <CloudRain size={14} />
+          }
+          label="Probability"
+          value={`${entry.rainProbability}%`}
+        />
+
+
+        <HistoryMetric
+          icon={
+            <Waves size={14} />
+          }
+          label="River"
+          value={entry.riverTrend}
+        />
+
+      </div>
+
+
+      {/* DATE */}
+
+      <div
+        style={{
+          padding:
+            "10px 16px",
+          display:
+            "flex",
+          alignItems:
+            "center",
+          gap:
+            "6px",
+          color:
+            "#94a3b8",
+          fontSize:
+            "10px",
+        }}
+      >
+
+        <CalendarDays size={12} />
+
+        {formattedDate}
+
+        <span>
+          •
+        </span>
+
+        {formattedTime}
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+
+/* =========================================================
+   HISTORY METRIC
+   ========================================================= */
+
+function HistoryMetric({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+
+  return (
+
+    <div
+      style={{
+        padding:
+          "11px 10px",
+        display:
+          "flex",
+        alignItems:
+          "center",
+        gap:
+          "7px",
+        minWidth:
+          0,
+      }}
+    >
+
+      <span
+        style={{
+          color:
+            "#64748b",
+          flexShrink:
+            0,
+        }}
+      >
+        {icon}
+      </span>
+
+
+      <div
+        style={{
+          minWidth:
+            0,
+        }}
+      >
+
+        <span
+          style={{
+            display:
+              "block",
+            fontSize:
+              "8px",
+            color:
+              "#94a3b8",
+            textTransform:
+              "uppercase",
+            letterSpacing:
+              "0.04em",
+          }}
+        >
+          {label}
+        </span>
+
+
+        <strong
+          style={{
+            display:
+              "block",
+            marginTop:
+              "2px",
+            fontSize:
+              "10px",
+            whiteSpace:
+              "nowrap",
+            overflow:
+              "hidden",
+            textOverflow:
+              "ellipsis",
+          }}
+        >
+          {value}
+        </strong>
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+
+/* =========================================================
+   ALERTS PANEL
+   ========================================================= */
+
+function AlertsPanel({
+  locationName,
+  risk,
+  riskLevel,
+  weather,
+  river,
+  disaster,
+  loading,
+  onClose,
+  onEmergency,
+}: {
+  locationName: string;
+  risk: RiskResult | null;
+  riskLevel: string;
+  weather: WeatherData | null;
+  river: RiverData | null;
+  disaster: DisasterAlert | null;
+  loading: boolean;
+  onClose: () => void;
+  onEmergency: () => void;
+}) {
+
+  const alerts: {
+    title: string;
+    description: string;
+    severity:
+      | "SEVERE"
+      | "HIGH"
+      | "MODERATE"
+      | "INFO";
+    icon: ReactNode;
+  }[] = [];
+
+
+  if (disaster?.active) {
+
+    alerts.push({
+
+      title:
+        disaster.title ||
+        "Active natural hazard",
+
+      description:
+        disaster.description ||
+        "An active natural hazard has been detected in the monitored area.",
+
+      severity:
+        "SEVERE",
+
+      icon:
+        <Siren size={20} />,
+
+    });
+
+  }
+
+
+  if (!loading && risk) {
+
+    if (risk.score >= 75) {
+
+      alerts.push({
+
+        title:
+          "Severe flood risk",
+
+        description:
+          risk.reason?.join(". ") ||
+          "Multiple environmental indicators indicate severe flood risk.",
+
+        severity:
+          "SEVERE",
+
+        icon:
+          <AlertTriangle size={20} />,
+
+      });
+
+    } else if (risk.score >= 50) {
+
+      alerts.push({
+
+        title:
+          "High flood risk",
+
+        description:
+          risk.reason?.join(". ") ||
+          "Current environmental conditions indicate elevated flood risk.",
+
+        severity:
+          "HIGH",
+
+        icon:
+          <AlertTriangle size={20} />,
+
+      });
+
+    } else if (risk.score >= 25) {
+
+      alerts.push({
+
+        title:
+          "Moderate flood risk",
+
+        description:
+          risk.reason?.join(". ") ||
+          "Some environmental indicators are contributing to flood risk.",
+
+        severity:
+          "MODERATE",
+
+        icon:
+          <AlertTriangle size={20} />,
+
+      });
+
+    }
+
+  }
+
+
+  if (
+    weather &&
+    weather.rainfall >= 25
+  ) {
+
+    alerts.push({
+
+      title:
+        "Heavy rainfall detected",
+
+      description:
+        `${weather.rainfall} mm of current precipitation is contributing to elevated flood potential.`,
+
+      severity:
+        weather.rainfall >= 50
+          ? "SEVERE"
+          : "HIGH",
+
+      icon:
+        <CloudRain size={20} />,
+
+    });
+
+  }
+
+
+  if (
+    weather &&
+    weather.rainProbability >= 60
+  ) {
+
+    alerts.push({
+
+      title:
+        "Rainfall likely to continue",
+
+      description:
+        `There is a ${weather.rainProbability}% probability of rainfall in the near-term forecast.`,
+
+      severity:
+        weather.rainProbability >= 80
+          ? "HIGH"
+          : "MODERATE",
+
+      icon:
+        <Droplets size={20} />,
+
+    });
+
+  }
+
+
+  if (
+    river?.available &&
+    river.trend === "RISING"
+  ) {
+
+    alerts.push({
+
+      title:
+        "River discharge rising",
+
+      description:
+        `Current river discharge is ${river.currentDischarge.toFixed(
+          1
+        )} m³/s and the monitored trend is rising.`,
+
+      severity:
+        "HIGH",
+
+      icon:
+        <Waves size={20} />,
+
+    });
+
+  }
+
+
+  if (
+    !loading &&
+    alerts.length === 0
+  ) {
+
+    alerts.push({
+
+      title:
+        "No active alerts",
+
+      description:
+        `Current environmental conditions around ${locationName} remain within monitored ranges.`,
+
+      severity:
+        "INFO",
+
+      icon:
+        <CheckCircle size={20} />,
+
+    });
+
+  }
+
+
+  return (
+
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background:
+          "rgba(10,20,30,0.55)",
+        zIndex: 10000,
+        display: "flex",
+        justifyContent: "flex-end",
+        backdropFilter:
+          "blur(5px)",
+      }}
+      onClick={onClose}
+    >
+
+      <div
+        style={{
+          width:
+            "min(500px, 100%)",
+          height: "100%",
+          background: "#ffffff",
+          boxShadow:
+            "-20px 0 60px rgba(0,0,0,0.22)",
+          overflowY: "auto",
+        }}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
+      >
+
+        <div
+          style={{
+            padding: "24px",
+            borderBottom:
+              "1px solid #e5e7eb",
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "center",
+          }}
+        >
+
+          <div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+
+              <div
+                style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "12px",
+                  background: "#eff6ff",
+                  color: "#2563eb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+
+                <Bell size={21} />
+
+              </div>
+
+              <div>
+
+                <span
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing:
+                      "0.08em",
+                  }}
+                >
+                  FLOODSAFE
+                </span>
+
+                <h2
+                  style={{
+                    margin:
+                      "4px 0 0",
+                    fontSize: "22px",
+                  }}
+                >
+                  Alerts
+                </h2>
+
+              </div>
+
+            </div>
+
+            <p
+              style={{
+                margin:
+                  "12px 0 0",
+                color:
+                  "#64748b",
+                fontSize:
+                  "13px",
+              }}
+            >
+
+              Live alerts for{" "}
+              <strong>
+                {locationName}
+              </strong>
+
+            </p>
+
+          </div>
+
+
+          <button
+            onClick={onClose}
+            style={{
+              border: "none",
+              background:
+                "#f1f5f9",
+              width: "40px",
+              height: "40px",
+              borderRadius:
+                "10px",
+              cursor:
+                "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+
+            <X size={20} />
+
+          </button>
+
+        </div>
+
+
+        <div
+          style={{
+            margin: "20px 24px",
+            padding: "15px",
+            borderRadius: "14px",
+            background:
+              riskLevel === "SEVERE"
+                ? "#fef2f2"
+                : riskLevel === "HIGH"
+                  ? "#fff7ed"
+                  : riskLevel === "MODERATE"
+                    ? "#fffbeb"
+                    : "#f0fdf4",
+            border:
+              "1px solid #e2e8f0",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+          }}
+        >
+
+          <div
+            style={{
+              width: "10px",
+              height: "10px",
+              borderRadius: "50%",
+              background:
+                riskLevel === "SEVERE"
+                  ? "#dc2626"
+                  : riskLevel === "HIGH"
+                    ? "#ea580c"
+                    : riskLevel === "MODERATE"
+                      ? "#f59e0b"
+                      : "#16a34a",
+            }}
+          />
+
+          <div>
+
+            <strong
+              style={{
+                display: "block",
+                fontSize: "13px",
+              }}
+            >
+
+              Overall status:{" "}
+              {loading
+                ? "ANALYZING"
+                : riskLevel}
+
+            </strong>
+
+            <span
+              style={{
+                display: "block",
+                marginTop: "3px",
+                fontSize: "11px",
+                color: "#64748b",
+              }}
+            >
+              Live environmental monitoring
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <div
+          style={{
+            padding:
+              "0 24px 30px",
+          }}
+        >
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent:
+                "space-between",
+              marginBottom: "14px",
+            }}
+          >
+
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "15px",
+              }}
+            >
+              Current alerts
+            </h3>
+
+            <span
+              style={{
+                fontSize: "11px",
+                color: "#64748b",
+              }}
+            >
+
+              {loading
+                ? "Analyzing..."
+                : `${alerts.length} alert${
+                    alerts.length === 1
+                      ? ""
+                      : "s"
+                  }`}
+
+            </span>
+
+          </div>
+
+
+          {loading ? (
+
+            <div
+              style={{
+                padding: "40px 20px",
+                textAlign: "center",
+                background: "#f8fafc",
+                borderRadius: "14px",
+                color: "#64748b",
+              }}
+            >
+
+              <Activity
+                size={26}
+                style={{
+                  marginBottom: "10px",
+                }}
+              />
+
+              <div
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                Analyzing alerts...
+              </div>
+
+              <div
+                style={{
+                  fontSize: "11px",
+                  marginTop: "5px",
+                }}
+              >
+                Checking weather, river and
+                hazard feeds.
+              </div>
+
+            </div>
+
+          ) : (
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+
+              {alerts.map(
+                (
+                  alert,
+                  index
+                ) => (
+
+                  <AlertCard
+                    key={`${alert.title}-${index}`}
+                    title={alert.title}
+                    description={
+                      alert.description
+                    }
+                    severity={
+                      alert.severity
+                    }
+                    icon={
+                      alert.icon
+                    }
+                  />
+
+                )
+              )}
+
+            </div>
+
+          )}
+
+
+          {!loading &&
+            risk && (
+
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "18px",
+                border:
+                  "1px solid #e2e8f0",
+                borderRadius: "14px",
+                background: "#f8fafc",
+              }}
+            >
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent:
+                    "space-between",
+                  alignItems:
+                    "center",
+                }}
+              >
+
+                <div>
+
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      color: "#64748b",
+                      letterSpacing:
+                        "0.07em",
+                    }}
+                  >
+                    FLOOD RISK SCORE
+                  </span>
+
+                  <div
+                    style={{
+                      marginTop: "5px",
+                      fontSize: "13px",
+                      color: "#475569",
+                    }}
+                  >
+                    Combined environmental
+                    assessment
+                  </div>
+
+                </div>
+
+
+                <strong
+                  style={{
+                    fontSize: "26px",
+                  }}
+                >
+
+                  {risk.score}
+
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      color: "#94a3b8",
+                      fontWeight: 500,
+                    }}
+                  >
+                    /100
+                  </span>
+
+                </strong>
+
+              </div>
+
+
+              <div
+                style={{
+                  marginTop: "13px",
+                  height: "7px",
+                  background: "#e2e8f0",
+                  borderRadius: "10px",
+                  overflow: "hidden",
+                }}
+              >
+
+                <div
+                  style={{
+                    width:
+                      `${risk.score}%`,
+                    height: "100%",
+                    background:
+                      risk.score >= 75
+                        ? "#dc2626"
+                        : risk.score >= 50
+                          ? "#ea580c"
+                          : risk.score >= 25
+                            ? "#f59e0b"
+                            : "#16a34a",
+                    borderRadius:
+                      "10px",
+                  }}
+                />
+
+              </div>
+
+            </div>
+
+          )}
+
+
+          <button
+            onClick={onEmergency}
+            style={{
+              width: "100%",
+              marginTop: "18px",
+              padding: "14px",
+              border: "none",
+              borderRadius: "12px",
+              background: "#0f172a",
+              color: "#ffffff",
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+            }}
+          >
+
+            <Siren size={17} />
+
+            Open emergency response
+
+          </button>
+
+
+          <div
+            style={{
+              marginTop: "18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              color: "#94a3b8",
+              fontSize: "10px",
+            }}
+          >
+
+            <Clock size={12} />
+
+            Live monitoring data
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+
+/* =========================================================
+   ALERT CARD
+   ========================================================= */
+
+function AlertCard({
+  title,
+  description,
+  severity,
+  icon,
+}: {
+  title: string;
+  description: string;
+  severity:
+    | "SEVERE"
+    | "HIGH"
+    | "MODERATE"
+    | "INFO";
+  icon: ReactNode;
+}) {
+
+  const background =
+    severity === "SEVERE"
+      ? "#fef2f2"
+      : severity === "HIGH"
+        ? "#fff7ed"
+        : severity === "MODERATE"
+          ? "#fffbeb"
+          : "#f0fdf4";
+
+
+  const border =
+    severity === "SEVERE"
+      ? "#fecaca"
+      : severity === "HIGH"
+        ? "#fed7aa"
+        : severity === "MODERATE"
+          ? "#fde68a"
+          : "#bbf7d0";
+
+
+  const iconBackground =
+    severity === "SEVERE"
+      ? "#fee2e2"
+      : severity === "HIGH"
+        ? "#ffedd5"
+        : severity === "MODERATE"
+          ? "#fef3c7"
+          : "#dcfce7";
+
+
+  const iconColor =
+    severity === "SEVERE"
+      ? "#dc2626"
+      : severity === "HIGH"
+        ? "#ea580c"
+        : severity === "MODERATE"
+          ? "#d97706"
+          : "#16a34a";
+
+
+  return (
+
+    <div
+      style={{
+        padding: "16px",
+        borderRadius: "14px",
+        border:
+          `1px solid ${border}`,
+        background,
+      }}
+    >
+
+      <div
+        style={{
+          display: "flex",
+          gap: "12px",
+        }}
+      >
+
+        <div
+          style={{
+            width: "38px",
+            height: "38px",
+            flexShrink: 0,
+            borderRadius: "10px",
+            background:
+              iconBackground,
+            color:
+              iconColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+
+          {icon}
+
+        </div>
+
+
+        <div
+          style={{
+            flex: 1,
+          }}
+        >
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent:
+                "space-between",
+              gap: "10px",
+            }}
+          >
+
+            <strong
+              style={{
+                fontSize: "13px",
+              }}
+            >
+              {title}
+            </strong>
+
+
+            <span
+              style={{
+                fontSize: "9px",
+                fontWeight: 800,
+                letterSpacing:
+                  "0.06em",
+                color:
+                  iconColor,
+              }}
+            >
+              {severity}
+            </span>
+
+          </div>
+
+
+          <p
+            style={{
+              margin:
+                "6px 0 0",
+              color:
+                "#64748b",
+              fontSize:
+                "12px",
+              lineHeight:
+                1.55,
+            }}
+          >
+            {description}
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+
+/* =========================================================
+   SETTINGS PANEL
+   ========================================================= */
 
 function SettingsPanel({
   locationName,
@@ -1738,10 +4026,12 @@ function SettingsPanel({
           "rgba(10,20,30,0.55)",
         zIndex: 9999,
         display: "flex",
-        justifyContent: "flex-end",
+        justifyContent:
+          "flex-end",
         backdropFilter:
           "blur(5px)",
       }}
+      onClick={onClose}
     >
 
       <div
@@ -1754,6 +4044,9 @@ function SettingsPanel({
             "-20px 0 60px rgba(0,0,0,0.2)",
           overflowY: "auto",
         }}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
       >
 
         <div
@@ -1924,7 +4217,9 @@ function SettingsPanel({
 }
 
 
-/* SETTING ROW */
+/* =========================================================
+   SETTING ROW
+   ========================================================= */
 
 function SettingRow({
   title,
@@ -2029,7 +4324,9 @@ function SettingRow({
 }
 
 
-/* EMERGENCY PANEL */
+/* =========================================================
+   EMERGENCY PANEL
+   ========================================================= */
 
 function EmergencyPanel({
   locationName,
@@ -2092,6 +4389,7 @@ function EmergencyPanel({
         backdropFilter:
           "blur(5px)",
       }}
+      onClick={onClose}
     >
 
       <div
@@ -2105,6 +4403,9 @@ function EmergencyPanel({
           boxShadow:
             "0 25px 80px rgba(0,0,0,0.25)",
         }}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
       >
 
         <div
@@ -2290,7 +4591,8 @@ function EmergencyPanel({
                 "grid",
               gridTemplateColumns:
                 "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: "12px",
+              gap:
+                "12px",
             }}
           >
 
@@ -2444,7 +4746,8 @@ function EmergencyPanel({
                     "grid",
                   gridTemplateColumns:
                     "repeat(auto-fit, minmax(250px, 1fr))",
-                  gap: "12px",
+                  gap:
+                    "12px",
                 }}
               >
 
@@ -2563,7 +4866,9 @@ function EmergencyPanel({
 }
 
 
-/* PLACE SECTION */
+/* =========================================================
+   PLACE SECTION
+   ========================================================= */
 
 function PlaceSection({
   title,
@@ -2753,7 +5058,9 @@ function PlaceSection({
 }
 
 
-/* EMERGENCY CONTACT */
+/* =========================================================
+   EMERGENCY CONTACT
+   ========================================================= */
 
 function EmergencyContact({
   icon,
