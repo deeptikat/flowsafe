@@ -494,38 +494,40 @@ button {
 }
 
 .score-ring {
-  width: 138px;
-  height: 138px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
-  background: conic-gradient(#d74b4b 0deg 280deg, #edf0f2 280deg 360deg);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  transition: background 0.6s ease;
 }
 
-.score-ring::before {
-  content: "";
-  position: absolute;
-  width: 112px;
-  height: 112px;
-  background: white;
+.score-ring-inner {
+  width: 118px;
+  height: 118px;
   border-radius: 50%;
-}
-
-.score-ring div {
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
   position: relative;
-  text-align: center;
 }
 
-.score-ring strong {
-  font-size: 36px;
-  letter-spacing: -2px;
+.score-ring-inner strong {
+  font-size: 38px;
+  line-height: 1;
+  font-weight: 800;
+  color: #0f172a;
 }
 
-.score-ring span {
-  font-size: 10px;
-  color: #929ba3;
+.score-ring-inner span {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 600;
 }
 
 .risk-info {

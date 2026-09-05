@@ -39,6 +39,10 @@ import {
   searchLocationSuggestions,
 } from "./weather";
 
+import {
+  getEmergencyContacts,
+} from "./emergency";
+
 import type {
   LocationData,
   WeatherData,
@@ -140,27 +144,55 @@ function App() {
   const [error, setError] =
     useState("");
 
-  useEffect(() => {
-    const query = searchText.trim();
 
-    if (query.length < 2 || query === location.name) {
+  /*
+   * SEARCH SUGGESTIONS
+   */
+
+  useEffect(() => {
+
+    const query =
+      searchText.trim();
+
+    if (
+      query.length < 2 ||
+      query === location.name
+    ) {
       setSuggestions([]);
       return;
     }
 
-    const timeout = window.setTimeout(async () => {
-      try {
-        const results = await searchLocationSuggestions(query);
-        setSuggestions(results);
-        setActiveSuggestion(-1);
-      } catch (err) {
-        console.error(err);
-        setSuggestions([]);
-      }
-    }, 300);
+    const timeout =
+      window.setTimeout(async () => {
 
-    return () => window.clearTimeout(timeout);
-  }, [searchText, location.name]);
+        try {
+
+          const results =
+            await searchLocationSuggestions(
+              query
+            );
+
+          setSuggestions(results);
+
+          setActiveSuggestion(-1);
+
+        } catch (err) {
+
+          console.error(err);
+
+          setSuggestions([]);
+
+        }
+
+      }, 300);
+
+    return () =>
+      window.clearTimeout(timeout);
+
+  }, [
+    searchText,
+    location.name,
+  ]);
 
 
   /*
@@ -184,6 +216,7 @@ function App() {
     }
 
     setSidebarOpen(false);
+
   }
 
 
@@ -194,6 +227,7 @@ function App() {
   function openAlerts() {
 
     setAlertsOpen(true);
+
     setSidebarOpen(false);
 
   }
@@ -212,6 +246,7 @@ function App() {
     try {
 
       setLoading(true);
+
       setError("");
 
       const [
@@ -243,6 +278,7 @@ function App() {
       setDisaster(disasterData);
 
       setRiver(riverData);
+
 
       const riskResult =
         calculateFloodRisk(
@@ -339,6 +375,7 @@ function App() {
     try {
 
       setSearching(true);
+
       setError("");
 
       const result =
@@ -379,53 +416,111 @@ function App() {
 
   }
 
-  function selectSuggestion(suggestion: LocationData) {
-    setSearchText(suggestion.name);
+
+  /*
+   * SELECT SEARCH SUGGESTION
+   */
+
+  function selectSuggestion(
+    suggestion: LocationData
+  ) {
+
+    setSearchText(
+      suggestion.name
+    );
+
     setSuggestions([]);
+
     setActiveSuggestion(-1);
-    setLocation(suggestion);
+
+    setLocation(
+      suggestion
+    );
+
     void loadData(
       suggestion.latitude,
       suggestion.longitude,
       suggestion.country
     );
+
   }
 
 
   /*
-   * SEARCH ENTER
+   * SEARCH KEYBOARD
    */
 
   function handleSearchKeyDown(
     event: KeyboardEvent<HTMLInputElement>
   ) {
 
-    if (event.key === "Enter") {
+    if (
+      event.key === "Enter"
+    ) {
+
       event.preventDefault();
-      if (activeSuggestion >= 0 && suggestions[activeSuggestion]) {
-        selectSuggestion(suggestions[activeSuggestion]);
+
+      if (
+        activeSuggestion >= 0 &&
+        suggestions[activeSuggestion]
+      ) {
+
+        selectSuggestion(
+          suggestions[activeSuggestion]
+        );
+
       } else {
+
         void handleSearch();
+
       }
+
     }
 
-    if (event.key === "ArrowDown" && suggestions.length > 0) {
+
+    if (
+      event.key === "ArrowDown" &&
+      suggestions.length > 0
+    ) {
+
       event.preventDefault();
-      setActiveSuggestion((current) =>
-        current < suggestions.length - 1 ? current + 1 : 0
+
+      setActiveSuggestion(
+        (current) =>
+          current <
+          suggestions.length - 1
+            ? current + 1
+            : 0
       );
+
     }
 
-    if (event.key === "ArrowUp" && suggestions.length > 0) {
+
+    if (
+      event.key === "ArrowUp" &&
+      suggestions.length > 0
+    ) {
+
       event.preventDefault();
-      setActiveSuggestion((current) =>
-        current > 0 ? current - 1 : suggestions.length - 1
+
+      setActiveSuggestion(
+        (current) =>
+          current > 0
+            ? current - 1
+            : suggestions.length - 1
       );
+
     }
 
-    if (event.key === "Escape") {
+
+    if (
+      event.key === "Escape"
+    ) {
+
       setSuggestions([]);
+
       setActiveSuggestion(-1);
+
     }
 
   }
@@ -433,10 +528,6 @@ function App() {
 
   /*
    * REVERSE GEOCODE GPS LOCATION
-   *
-   * We use OpenStreetMap Nominatim to turn
-   * the browser's latitude/longitude into
-   * a readable city and country.
    */
 
   async function reverseGeocode(
@@ -453,12 +544,15 @@ function App() {
       `&addressdetails=1`;
 
     const response =
-      await fetch(url, {
-        headers: {
-          Accept:
-            "application/json",
-        },
-      });
+      await fetch(
+        url,
+        {
+          headers: {
+            Accept:
+              "application/json",
+          },
+        }
+      );
 
     if (!response.ok) {
 
@@ -496,198 +590,192 @@ function App() {
   }
 
 
- /*
- * USE MY LOCATION
- */
+  /*
+   * USE MY LOCATION
+   */
 
-function useMyLocation() {
+  function useMyLocation() {
 
-  if (!navigator.geolocation) {
+    if (!navigator.geolocation) {
 
-    setError(
-      "Geolocation is not supported by your browser."
-    );
+      setError(
+        "Geolocation is not supported by your browser."
+      );
 
-    return;
+      return;
 
-  }
+    }
 
-  setError("");
-  setLocating(true);
+    setError("");
 
-  navigator.geolocation.getCurrentPosition(
+    setLocating(true);
 
-    async (position) => {
+    navigator.geolocation.getCurrentPosition(
 
-      const latitude =
-        position.coords.latitude;
+      async (position) => {
 
-      const longitude =
-        position.coords.longitude;
+        const latitude =
+          position.coords.latitude;
 
-      try {
-
-        /*
-         * GPS successfully returned coordinates.
-         *
-         * Now reverse-geocode those coordinates
-         * into a readable city/country.
-         */
-
-        const result =
-          await reverseGeocode(
-            latitude,
-            longitude
-          );
-
-        setLocation(result);
-
-        setSearchText(
-          result.name
-        );
-
-        /*
-         * Load weather, disaster and river
-         * information for the actual GPS location.
-         */
-
-        await loadData(
-          latitude,
-          longitude,
-          result.country
-        );
-
-        /*
-         * Refresh emergency places if the
-         * emergency panel is already open.
-         */
-
-        if (emergencyOpen) {
-
-          await loadPlaces(
-            latitude,
-            longitude
-          );
-
-        }
-
-      } catch (err) {
-
-        console.error(
-          "Location processing failed:",
-          err
-        );
-
-        /*
-         * GPS worked even if reverse geocoding
-         * failed.
-         *
-         * Therefore we still use the actual
-         * coordinates.
-         */
-
-        setLocation({
-
-          name:
-            "Current location",
-
-          country:
-            "India",
-
-          latitude,
-
-          longitude,
-
-        });
-
-        setSearchText(
-          "Current location"
-        );
+        const longitude =
+          position.coords.longitude;
 
         try {
+
+          const result =
+            await reverseGeocode(
+              latitude,
+              longitude
+            );
+
+          setLocation(
+            result
+          );
+
+          setSearchText(
+            result.name
+          );
+
 
           await loadData(
             latitude,
             longitude,
-            "India"
+            result.country
           );
 
-        } catch (dataError) {
+
+          if (emergencyOpen) {
+
+            await loadPlaces(
+              latitude,
+              longitude
+            );
+
+          }
+
+        } catch (err) {
 
           console.error(
-            "Environmental data failed:",
-            dataError
+            "Location processing failed:",
+            err
           );
 
+
+          /*
+           * IMPORTANT:
+           *
+           * We no longer assume India.
+           *
+           * If reverse geocoding fails,
+           * we use the actual coordinates
+           * but mark country as Unknown.
+           */
+
+          setLocation({
+
+            name:
+              "Current location",
+
+            country:
+              "Unknown",
+
+            latitude,
+
+            longitude,
+
+          });
+
+          setSearchText(
+            "Current location"
+          );
+
+
+          try {
+
+            await loadData(
+              latitude,
+              longitude,
+              "Unknown"
+            );
+
+          } catch (dataError) {
+
+            console.error(
+              "Environmental data failed:",
+              dataError
+            );
+
+            setError(
+              "Your location was detected, but environmental data could not be loaded."
+            );
+
+          }
+
+        } finally {
+
+          setLocating(false);
+
+        }
+
+      },
+
+      (error) => {
+
+        console.error(
+          "Geolocation error:",
+          error
+        );
+
+        setLocating(false);
+
+
+        if (
+          error.code ===
+          error.PERMISSION_DENIED
+        ) {
+
           setError(
-            "Your location was detected, but environmental data could not be loaded."
+            "Location permission was denied. Please allow location access for this site in your browser."
+          );
+
+        } else if (
+          error.code ===
+          error.POSITION_UNAVAILABLE
+        ) {
+
+          setError(
+            "Your device could not determine your location. Turn on Windows Location Services and try again."
+          );
+
+        } else if (
+          error.code ===
+          error.TIMEOUT
+        ) {
+
+          setError(
+            "Location detection timed out. Please try again."
+          );
+
+        } else {
+
+          setError(
+            "Could not determine your location. Please try again."
           );
 
         }
 
-      } finally {
+      },
 
-        setLocating(false);
-
+      {
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 0,
       }
 
-    },
+    );
 
-    (error) => {
+  }
 
-      console.error(
-        "Geolocation error:",
-        error
-      );
-
-      setLocating(false);
-
-      if (
-        error.code ===
-        error.PERMISSION_DENIED
-      ) {
-
-        setError(
-          "Location permission was denied. Please allow location access for this site in your browser."
-        );
-
-      } else if (
-        error.code ===
-        error.POSITION_UNAVAILABLE
-      ) {
-
-        setError(
-          "Your device could not determine your location. Turn on Windows Location Services and try again."
-        );
-
-      } else if (
-        error.code ===
-        error.TIMEOUT
-      ) {
-
-        setError(
-          "Location detection timed out. Please try again."
-        );
-
-      } else {
-
-        setError(
-          "Could not determine your location. Please try again."
-        );
-
-      }
-
-    },
-
-    {
-      enableHighAccuracy: true,
-      timeout: 30000,
-      maximumAge: 0,
-    }
-
-  );
-
-}
 
   /*
    * INITIAL DATA LOAD
@@ -695,7 +783,7 @@ function useMyLocation() {
 
   useEffect(() => {
 
-    loadData(
+    void loadData(
       location.latitude,
       location.longitude,
       location.country
@@ -704,9 +792,17 @@ function useMyLocation() {
   }, []);
 
 
+  /*
+   * RISK LEVEL
+   */
+
   const riskLevel =
     risk?.level || "LOW";
 
+
+  /*
+   * RAINFALL MAX
+   */
 
   const maxRainfall =
     weather?.hourlyRainfall &&
@@ -718,15 +814,56 @@ function useMyLocation() {
       : 1;
 
 
+  /*
+   * DYNAMIC RISK COLOR
+   */
+
+  const riskScore =
+    risk?.score ?? 0;
+
+
+  const riskColor =
+    riskScore >= 75
+      ? "#dc2626"
+      : riskScore >= 50
+        ? "#ea580c"
+        : riskScore >= 25
+          ? "#f59e0b"
+          : "#16a34a";
+
+
+  /*
+   * DYNAMIC RING
+   *
+   * 0   = empty
+   * 50  = half
+   * 100 = full
+   */
+
+  const riskDegrees =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        riskScore
+      )
+    ) * 3.6;
+
+
   return (
 
     <div className="app">
 
-      {/* SIDEBAR */}
+
+      {/* =================================================
+          SIDEBAR
+          ================================================= */}
 
       <aside
         className={`sidebar ${
-          sidebarOpen ? "open" : ""
+          sidebarOpen
+            ? "open"
+            : ""
         }`}
       >
 
@@ -770,47 +907,67 @@ function useMyLocation() {
 
 
           <NavItem
-            icon={<Home size={18} />}
+            icon={
+              <Home size={18} />
+            }
             text="Overview"
             active
             onClick={() =>
-              scrollToSection("overview")
+              scrollToSection(
+                "overview"
+              )
             }
           />
 
 
           <NavItem
-            icon={<Map size={18} />}
+            icon={
+              <Map size={18} />
+            }
             text="Live Map"
             onClick={() =>
-              scrollToSection("map-section")
+              scrollToSection(
+                "map-section"
+              )
             }
           />
 
 
           <NavItem
-            icon={<Gauge size={18} />}
+            icon={
+              <Gauge size={18} />
+            }
             text="Flood Risk"
             onClick={() =>
-              scrollToSection("risk-section")
+              scrollToSection(
+                "risk-section"
+              )
             }
           />
 
 
           <NavItem
-            icon={<CloudRain size={18} />}
+            icon={
+              <CloudRain size={18} />
+            }
             text="Weather"
             onClick={() =>
-              scrollToSection("weather-section")
+              scrollToSection(
+                "weather-section"
+              )
             }
           />
 
 
           <NavItem
-            icon={<Waves size={18} />}
+            icon={
+              <Waves size={18} />
+            }
             text="River Monitor"
             onClick={() =>
-              scrollToSection("river-section")
+              scrollToSection(
+                "river-section"
+              )
             }
           />
 
@@ -821,7 +978,9 @@ function useMyLocation() {
 
 
           <NavItem
-            icon={<Bell size={18} />}
+            icon={
+              <Bell size={18} />
+            }
             text="Alerts"
             badge="3"
             onClick={openAlerts}
@@ -829,10 +988,14 @@ function useMyLocation() {
 
 
           <NavItem
-            icon={<Activity size={18} />}
+            icon={
+              <Activity size={18} />
+            }
             text="Reports"
             onClick={() =>
-              scrollToSection("reports-section")
+              scrollToSection(
+                "reports-section"
+              )
             }
           />
 
@@ -857,10 +1020,14 @@ function useMyLocation() {
 
 
           <NavItem
-            icon={<Activity size={18} />}
+            icon={
+              <Activity size={18} />
+            }
             text="History"
             onClick={() =>
-              scrollToSection("history-section")
+              scrollToSection(
+                "history-section"
+              )
             }
           />
 
@@ -871,7 +1038,9 @@ function useMyLocation() {
 
 
           <NavItem
-            icon={<Settings size={18} />}
+            icon={
+              <Settings size={18} />
+            }
             text="Settings"
             onClick={() =>
               setSettingsOpen(true)
@@ -902,9 +1071,14 @@ function useMyLocation() {
       </aside>
 
 
-      {/* MAIN */}
+      {/* =================================================
+          MAIN
+          ================================================= */}
 
       <main className="main">
+
+
+        {/* TOPBAR */}
 
         <header className="topbar">
 
@@ -937,33 +1111,70 @@ function useMyLocation() {
               placeholder="Search a city..."
             />
 
+
             {suggestions.length > 0 && (
+
               <div className="search-suggestions">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    className={
-                      index === activeSuggestion
-                        ? "suggestion active"
-                        : "suggestion"
-                    }
-                    key={`${suggestion.name}-${suggestion.latitude}`}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => selectSuggestion(suggestion)}
-                    type="button"
-                  >
-                    <MapPin size={14} />
-                    <span>
-                      <strong>{suggestion.name}</strong>
-                      <small>
-                        {[suggestion.admin1, suggestion.country]
-                          .filter(Boolean)
-                          .join(", ")}
-                      </small>
-                    </span>
-                  </button>
-                ))}
+
+                {suggestions.map(
+                  (
+                    suggestion,
+                    index
+                  ) => (
+
+                    <button
+                      className={
+                        index ===
+                        activeSuggestion
+                          ? "suggestion active"
+                          : "suggestion"
+                      }
+                      key={`${suggestion.name}-${suggestion.latitude}`}
+                      onMouseDown={(
+                        event
+                      ) =>
+                        event.preventDefault()
+                      }
+                      onClick={() =>
+                        selectSuggestion(
+                          suggestion
+                        )
+                      }
+                      type="button"
+                    >
+
+                      <MapPin size={14} />
+
+                      <span>
+
+                        <strong>
+                          {
+                            suggestion.name
+                          }
+                        </strong>
+
+                        <small>
+
+                          {[
+                            suggestion.admin1,
+                            suggestion.country,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+
+                        </small>
+
+                      </span>
+
+                    </button>
+
+                  )
+                )}
+
               </div>
+
             )}
+
 
             {searching && (
 
@@ -986,7 +1197,9 @@ function useMyLocation() {
               disabled={locating}
               style={{
                 opacity:
-                  locating ? 0.7 : 1,
+                  locating
+                    ? 0.7
+                    : 1,
                 cursor:
                   locating
                     ? "wait"
@@ -1048,10 +1261,15 @@ function useMyLocation() {
         </header>
 
 
+        {/* =================================================
+            CONTENT
+            ================================================= */}
+
         <section
           className="content"
           id="overview"
         >
+
 
           {/* PAGE HEADING */}
 
@@ -1183,12 +1401,16 @@ function useMyLocation() {
           </div>
 
 
-          {/* DASHBOARD GRID */}
+          {/* =================================================
+              DASHBOARD GRID
+              ================================================= */}
 
           <div className="dashboard-grid">
 
 
-            {/* FLOOD RISK */}
+            {/* =================================================
+                FLOOD RISK
+                ================================================= */}
 
             <div
               className="card risk-card"
@@ -1224,20 +1446,55 @@ function useMyLocation() {
 
               <div className="risk-body">
 
+
+                {/* =================================================
+                    DYNAMIC RISK SCORE CIRCLE
+                    ================================================= */}
+
                 <div className="risk-score">
 
-                  <div className="score-ring">
+                  <div
+                    className="score-ring"
+                    style={{
+                      background:
+                        loading
+                          ? "conic-gradient(#e2e8f0 0deg, #e2e8f0 360deg)"
+                          : `conic-gradient(
+                              ${riskColor}
+                              0deg,
+                              ${riskColor}
+                              ${riskDegrees}deg,
+                              #e2e8f0
+                              ${riskDegrees}deg,
+                              #e2e8f0
+                              360deg
+                            )`,
+                      transition:
+                        "background 0.6s ease",
+                    }}
+                  >
 
-                    <div>
+                    <div
+                      className="score-ring-inner"
+                    >
 
-                      <strong>
+                      <strong
+                        style={{
+                          color:
+                            loading
+                              ? "#0f172a"
+                              : riskColor,
+                          transition:
+                            "color 0.4s ease",
+                        }}
+                      >
 
                         {loading
                           ? "--"
-                          : risk?.score ??
-                            "--"}
+                          : riskScore}
 
                       </strong>
+
 
                       {!loading && (
 
@@ -1253,6 +1510,8 @@ function useMyLocation() {
 
                 </div>
 
+
+                {/* RISK INFORMATION */}
 
                 <div className="risk-info">
 
@@ -1285,7 +1544,9 @@ function useMyLocation() {
 
                   <button
                     className="outline-button"
-                    onClick={openEmergency}
+                    onClick={
+                      openEmergency
+                    }
                   >
 
                     Emergency help
@@ -1312,7 +1573,9 @@ function useMyLocation() {
             </div>
 
 
-            {/* WEATHER */}
+            {/* =================================================
+                WEATHER
+                ================================================= */}
 
             <div
               className="card"
@@ -1427,7 +1690,9 @@ function useMyLocation() {
             </div>
 
 
-            {/* RIVER */}
+            {/* =================================================
+                RIVER
+                ================================================= */}
 
             <div
               className="card river-card"
@@ -1498,7 +1763,9 @@ function useMyLocation() {
           </div>
 
 
-          {/* ANALYTICS */}
+          {/* =================================================
+              ANALYTICS
+              ================================================= */}
 
           <div
             className="lower-grid"
@@ -1526,8 +1793,10 @@ function useMyLocation() {
 
                 <span
                   style={{
-                    fontSize: "12px",
-                    color: "#64748b",
+                    fontSize:
+                      "12px",
+                    color:
+                      "#64748b",
                   }}
                 >
                   Live forecast
@@ -1548,19 +1817,22 @@ function useMyLocation() {
 
                   <span>
                     {Math.ceil(
-                      maxRainfall * 0.75
+                      maxRainfall *
+                        0.75
                     )}
                   </span>
 
                   <span>
                     {Math.ceil(
-                      maxRainfall * 0.5
+                      maxRainfall *
+                        0.5
                     )}
                   </span>
 
                   <span>
                     {Math.ceil(
-                      maxRainfall * 0.25
+                      maxRainfall *
+                        0.25
                     )}
                   </span>
 
@@ -1605,11 +1877,13 @@ function useMyLocation() {
                               )
                             );
 
+
                           const probability =
                             weather
                               .hourlyRainProbability[
                                 index
                               ] || 0;
+
 
                           return (
 
@@ -1633,7 +1907,8 @@ function useMyLocation() {
 
                       <div
                         style={{
-                          width: "100%",
+                          width:
+                            "100%",
                           textAlign:
                             "center",
                           padding:
@@ -1663,7 +1938,8 @@ function useMyLocation() {
 
                 <div
                   style={{
-                    display: "flex",
+                    display:
+                      "flex",
                     justifyContent:
                       "space-between",
                     marginLeft:
@@ -1804,7 +2080,7 @@ function useMyLocation() {
 
                   {loading
                     ? "--"
-                    : `${risk?.score ?? 0} / 100`}
+                    : `${riskScore} / 100`}
 
                 </strong>
 
@@ -1815,7 +2091,9 @@ function useMyLocation() {
           </div>
 
 
-          {/* LIVE MAP */}
+          {/* =================================================
+              LIVE MAP
+              ================================================= */}
 
           <div
             className="card map-card"
@@ -1839,7 +2117,9 @@ function useMyLocation() {
 
               <button
                 className="outline-button"
-                onClick={openEmergency}
+                onClick={
+                  openEmergency
+                }
               >
 
                 Emergency response
@@ -1862,7 +2142,7 @@ function useMyLocation() {
                   riskLevel
                 }
                 riskScore={
-                  risk?.score || 0
+                  riskScore
                 }
                 locationName={
                   location.name
@@ -1878,7 +2158,9 @@ function useMyLocation() {
       </main>
 
 
-      {/* SETTINGS PANEL */}
+      {/* =================================================
+          SETTINGS PANEL
+          ================================================= */}
 
       {settingsOpen && (
 
@@ -1894,7 +2176,9 @@ function useMyLocation() {
       )}
 
 
-      {/* ALERTS PANEL */}
+      {/* =================================================
+          ALERTS PANEL
+          ================================================= */}
 
       {alertsOpen && (
 
@@ -1903,7 +2187,9 @@ function useMyLocation() {
             location.name
           }
           risk={risk}
-          riskLevel={riskLevel}
+          riskLevel={
+            riskLevel
+          }
           weather={weather}
           river={river}
           disaster={disaster}
@@ -1912,15 +2198,20 @@ function useMyLocation() {
             setAlertsOpen(false)
           }
           onEmergency={() => {
+
             setAlertsOpen(false);
+
             openEmergency();
+
           }}
         />
 
       )}
 
 
-      {/* EMERGENCY PANEL */}
+      {/* =================================================
+          EMERGENCY PANEL
+          ================================================= */}
 
       {emergencyOpen && (
 
@@ -1928,20 +2219,47 @@ function useMyLocation() {
           locationName={
             location.name
           }
+
+          /*
+           * IMPORTANT:
+           * Pass the currently selected country.
+           *
+           * This means:
+           * India -> Indian numbers
+           * USA -> US numbers
+           * UK -> UK numbers
+           * etc.
+           */
+
+          country={
+            location.country
+          }
+
           riskLevel={
             riskLevel
           }
+
           riskScore={
-            risk?.score || 0
+            riskScore
           }
+
           disasterActive={
-            disaster?.active || false
+            disaster?.active ||
+            false
           }
-          places={places}
-          loading={placesLoading}
+
+          places={
+            places
+          }
+
+          loading={
+            placesLoading
+          }
+
           onClose={() =>
             setEmergencyOpen(false)
           }
+
         />
 
       )}
@@ -1949,6 +2267,7 @@ function useMyLocation() {
     </div>
 
   );
+
 }
 
 
@@ -1974,7 +2293,9 @@ function NavItem({
 
     <button
       className={`nav-item ${
-        active ? "active" : ""
+        active
+          ? "active"
+          : ""
       }`}
       onClick={onClick}
     >
@@ -1986,9 +2307,11 @@ function NavItem({
       </span>
 
       {badge && (
+
         <b>
           {badge}
         </b>
+
       )}
 
     </button>
@@ -2116,7 +2439,11 @@ function AlertsPanel({
   const alerts: {
     title: string;
     description: string;
-    severity: "SEVERE" | "HIGH" | "MODERATE" | "INFO";
+    severity:
+      | "SEVERE"
+      | "HIGH"
+      | "MODERATE"
+      | "INFO";
     icon: ReactNode;
   }[] = [];
 
@@ -2144,9 +2471,14 @@ function AlertsPanel({
   }
 
 
-  if (!loading && risk) {
+  if (
+    !loading &&
+    risk
+  ) {
 
-    if (risk.score >= 75) {
+    if (
+      risk.score >= 75
+    ) {
 
       alerts.push({
 
@@ -2154,7 +2486,9 @@ function AlertsPanel({
           "Severe flood risk",
 
         description:
-          risk.reason?.join(". ") ||
+          risk.reason?.join(
+            ". "
+          ) ||
           "Multiple environmental indicators indicate severe flood risk.",
 
         severity:
@@ -2165,7 +2499,9 @@ function AlertsPanel({
 
       });
 
-    } else if (risk.score >= 50) {
+    } else if (
+      risk.score >= 50
+    ) {
 
       alerts.push({
 
@@ -2173,7 +2509,9 @@ function AlertsPanel({
           "High flood risk",
 
         description:
-          risk.reason?.join(". ") ||
+          risk.reason?.join(
+            ". "
+          ) ||
           "Current environmental conditions indicate elevated flood risk.",
 
         severity:
@@ -2184,7 +2522,9 @@ function AlertsPanel({
 
       });
 
-    } else if (risk.score >= 25) {
+    } else if (
+      risk.score >= 25
+    ) {
 
       alerts.push({
 
@@ -2192,7 +2532,9 @@ function AlertsPanel({
           "Moderate flood risk",
 
         description:
-          risk.reason?.join(". ") ||
+          risk.reason?.join(
+            ". "
+          ) ||
           "Some environmental indicators are contributing to flood risk.",
 
         severity:
@@ -2262,7 +2604,8 @@ function AlertsPanel({
 
   if (
     river?.available &&
-    river.trend === "RISING"
+    river.trend ===
+      "RISING"
   ) {
 
     alerts.push({
@@ -2314,13 +2657,16 @@ function AlertsPanel({
 
     <div
       style={{
-        position: "fixed",
+        position:
+          "fixed",
         inset: 0,
         background:
           "rgba(10,20,30,0.55)",
         zIndex: 10000,
-        display: "flex",
-        justifyContent: "flex-end",
+        display:
+          "flex",
+        justifyContent:
+          "flex-end",
         backdropFilter:
           "blur(5px)",
       }}
@@ -2331,11 +2677,14 @@ function AlertsPanel({
         style={{
           width:
             "min(500px, 100%)",
-          height: "100%",
-          background: "#ffffff",
+          height:
+            "100%",
+          background:
+            "#ffffff",
           boxShadow:
             "-20px 0 60px rgba(0,0,0,0.22)",
-          overflowY: "auto",
+          overflowY:
+            "auto",
         }}
         onClick={(event) =>
           event.stopPropagation()
@@ -2344,13 +2693,16 @@ function AlertsPanel({
 
         <div
           style={{
-            padding: "24px",
+            padding:
+              "24px",
             borderBottom:
               "1px solid #e5e7eb",
-            display: "flex",
+            display:
+              "flex",
             justifyContent:
               "space-between",
-            alignItems: "center",
+            alignItems:
+              "center",
           }}
         >
 
@@ -2358,22 +2710,33 @@ function AlertsPanel({
 
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
+                display:
+                  "flex",
+                alignItems:
+                  "center",
+                gap:
+                  "10px",
               }}
             >
 
               <div
                 style={{
-                  width: "42px",
-                  height: "42px",
-                  borderRadius: "12px",
-                  background: "#eff6ff",
-                  color: "#2563eb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  width:
+                    "42px",
+                  height:
+                    "42px",
+                  borderRadius:
+                    "12px",
+                  background:
+                    "#eff6ff",
+                  color:
+                    "#2563eb",
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
+                  justifyContent:
+                    "center",
                 }}
               >
 
@@ -2385,9 +2748,12 @@ function AlertsPanel({
 
                 <span
                   style={{
-                    fontSize: "10px",
-                    fontWeight: 700,
-                    color: "#64748b",
+                    fontSize:
+                      "10px",
+                    fontWeight:
+                      700,
+                    color:
+                      "#64748b",
                     letterSpacing:
                       "0.08em",
                   }}
@@ -2399,7 +2765,8 @@ function AlertsPanel({
                   style={{
                     margin:
                       "4px 0 0",
-                    fontSize: "22px",
+                    fontSize:
+                      "22px",
                   }}
                 >
                   Alerts
@@ -2421,6 +2788,7 @@ function AlertsPanel({
             >
 
               Live alerts for{" "}
+
               <strong>
                 {locationName}
               </strong>
@@ -2433,18 +2801,24 @@ function AlertsPanel({
           <button
             onClick={onClose}
             style={{
-              border: "none",
+              border:
+                "none",
               background:
                 "#f1f5f9",
-              width: "40px",
-              height: "40px",
+              width:
+                "40px",
+              height:
+                "40px",
               borderRadius:
                 "10px",
               cursor:
                 "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              display:
+                "flex",
+              alignItems:
+                "center",
+              justifyContent:
+                "center",
             }}
           >
 
@@ -2457,36 +2831,51 @@ function AlertsPanel({
 
         <div
           style={{
-            margin: "20px 24px",
-            padding: "15px",
-            borderRadius: "14px",
+            margin:
+              "20px 24px",
+            padding:
+              "15px",
+            borderRadius:
+              "14px",
             background:
-              riskLevel === "SEVERE"
+              riskLevel ===
+              "SEVERE"
                 ? "#fef2f2"
-                : riskLevel === "HIGH"
+                : riskLevel ===
+                    "HIGH"
                   ? "#fff7ed"
-                  : riskLevel === "MODERATE"
+                  : riskLevel ===
+                      "MODERATE"
                     ? "#fffbeb"
                     : "#f0fdf4",
             border:
               "1px solid #e2e8f0",
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
+            display:
+              "flex",
+            alignItems:
+              "center",
+            gap:
+              "12px",
           }}
         >
 
           <div
             style={{
-              width: "10px",
-              height: "10px",
-              borderRadius: "50%",
+              width:
+                "10px",
+              height:
+                "10px",
+              borderRadius:
+                "50%",
               background:
-                riskLevel === "SEVERE"
+                riskLevel ===
+                "SEVERE"
                   ? "#dc2626"
-                  : riskLevel === "HIGH"
+                  : riskLevel ===
+                      "HIGH"
                     ? "#ea580c"
-                    : riskLevel === "MODERATE"
+                    : riskLevel ===
+                        "MODERATE"
                       ? "#f59e0b"
                       : "#16a34a",
               boxShadow:
@@ -2498,12 +2887,15 @@ function AlertsPanel({
 
             <strong
               style={{
-                display: "block",
-                fontSize: "13px",
+                display:
+                  "block",
+                fontSize:
+                  "13px",
               }}
             >
 
               Overall status:{" "}
+
               {loading
                 ? "ANALYZING"
                 : riskLevel}
@@ -2512,15 +2904,17 @@ function AlertsPanel({
 
             <span
               style={{
-                display: "block",
-                marginTop: "3px",
-                fontSize: "11px",
-                color: "#64748b",
+                display:
+                  "block",
+                marginTop:
+                  "3px",
+                fontSize:
+                  "11px",
+                color:
+                  "#64748b",
               }}
             >
-
               Live environmental monitoring
-
             </span>
 
           </div>
@@ -2537,18 +2931,23 @@ function AlertsPanel({
 
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
+              display:
+                "flex",
+              alignItems:
+                "center",
               justifyContent:
                 "space-between",
-              marginBottom: "14px",
+              marginBottom:
+                "14px",
             }}
           >
 
             <h3
               style={{
-                margin: 0,
-                fontSize: "15px",
+                margin:
+                  0,
+                fontSize:
+                  "15px",
               }}
             >
               Current alerts
@@ -2556,15 +2955,18 @@ function AlertsPanel({
 
             <span
               style={{
-                fontSize: "11px",
-                color: "#64748b",
+                fontSize:
+                  "11px",
+                color:
+                  "#64748b",
               }}
             >
 
               {loading
                 ? "Analyzing..."
                 : `${alerts.length} alert${
-                    alerts.length === 1
+                    alerts.length ===
+                    1
                       ? ""
                       : "s"
                   }`}
@@ -2578,25 +2980,33 @@ function AlertsPanel({
 
             <div
               style={{
-                padding: "40px 20px",
-                textAlign: "center",
-                background: "#f8fafc",
-                borderRadius: "14px",
-                color: "#64748b",
+                padding:
+                  "40px 20px",
+                textAlign:
+                  "center",
+                background:
+                  "#f8fafc",
+                borderRadius:
+                  "14px",
+                color:
+                  "#64748b",
               }}
             >
 
               <Activity
                 size={26}
                 style={{
-                  marginBottom: "10px",
+                  marginBottom:
+                    "10px",
                 }}
               />
 
               <div
                 style={{
-                  fontSize: "13px",
-                  fontWeight: 600,
+                  fontSize:
+                    "13px",
+                  fontWeight:
+                    600,
                 }}
               >
                 Analyzing alerts...
@@ -2604,8 +3014,10 @@ function AlertsPanel({
 
               <div
                 style={{
-                  fontSize: "11px",
-                  marginTop: "5px",
+                  fontSize:
+                    "11px",
+                  marginTop:
+                    "5px",
                 }}
               >
                 Checking weather, river and
@@ -2618,9 +3030,12 @@ function AlertsPanel({
 
             <div
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
+                display:
+                  "flex",
+                flexDirection:
+                  "column",
+                gap:
+                  "12px",
               }}
             >
 
@@ -2632,7 +3047,9 @@ function AlertsPanel({
 
                   <AlertCard
                     key={`${alert.title}-${index}`}
-                    title={alert.title}
+                    title={
+                      alert.title
+                    }
                     description={
                       alert.description
                     }
@@ -2657,18 +3074,23 @@ function AlertsPanel({
 
             <div
               style={{
-                marginTop: "20px",
-                padding: "18px",
+                marginTop:
+                  "20px",
+                padding:
+                  "18px",
                 border:
                   "1px solid #e2e8f0",
-                borderRadius: "14px",
-                background: "#f8fafc",
+                borderRadius:
+                  "14px",
+                background:
+                  "#f8fafc",
               }}
             >
 
               <div
                 style={{
-                  display: "flex",
+                  display:
+                    "flex",
                   justifyContent:
                     "space-between",
                   alignItems:
@@ -2680,9 +3102,12 @@ function AlertsPanel({
 
                   <span
                     style={{
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      color: "#64748b",
+                      fontSize:
+                        "10px",
+                      fontWeight:
+                        700,
+                      color:
+                        "#64748b",
                       letterSpacing:
                         "0.07em",
                     }}
@@ -2692,9 +3117,12 @@ function AlertsPanel({
 
                   <div
                     style={{
-                      marginTop: "5px",
-                      fontSize: "13px",
-                      color: "#475569",
+                      marginTop:
+                        "5px",
+                      fontSize:
+                        "13px",
+                      color:
+                        "#475569",
                     }}
                   >
                     Combined environmental
@@ -2706,7 +3134,8 @@ function AlertsPanel({
 
                 <strong
                   style={{
-                    fontSize: "26px",
+                    fontSize:
+                      "26px",
                   }}
                 >
 
@@ -2714,9 +3143,12 @@ function AlertsPanel({
 
                   <span
                     style={{
-                      fontSize: "12px",
-                      color: "#94a3b8",
-                      fontWeight: 500,
+                      fontSize:
+                        "12px",
+                      color:
+                        "#94a3b8",
+                      fontWeight:
+                        500,
                     }}
                   >
                     /100
@@ -2729,11 +3161,16 @@ function AlertsPanel({
 
               <div
                 style={{
-                  marginTop: "13px",
-                  height: "7px",
-                  background: "#e2e8f0",
-                  borderRadius: "10px",
-                  overflow: "hidden",
+                  marginTop:
+                    "13px",
+                  height:
+                    "7px",
+                  background:
+                    "#e2e8f0",
+                  borderRadius:
+                    "10px",
+                  overflow:
+                    "hidden",
                 }}
               >
 
@@ -2741,13 +3178,17 @@ function AlertsPanel({
                   style={{
                     width:
                       `${risk.score}%`,
-                    height: "100%",
+                    height:
+                      "100%",
                     background:
-                      risk.score >= 75
+                      risk.score >=
+                      75
                         ? "#dc2626"
-                        : risk.score >= 50
+                        : risk.score >=
+                            50
                           ? "#ea580c"
-                          : risk.score >= 25
+                          : risk.score >=
+                              25
                             ? "#f59e0b"
                             : "#16a34a",
                     borderRadius:
@@ -2763,21 +3204,36 @@ function AlertsPanel({
 
 
           <button
-            onClick={onEmergency}
+            onClick={
+              onEmergency
+            }
             style={{
-              width: "100%",
-              marginTop: "18px",
-              padding: "14px",
-              border: "none",
-              borderRadius: "12px",
-              background: "#0f172a",
-              color: "#ffffff",
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
+              width:
+                "100%",
+              marginTop:
+                "18px",
+              padding:
+                "14px",
+              border:
+                "none",
+              borderRadius:
+                "12px",
+              background:
+                "#0f172a",
+              color:
+                "#ffffff",
+              fontWeight:
+                700,
+              cursor:
+                "pointer",
+              display:
+                "flex",
+              alignItems:
+                "center",
+              justifyContent:
+                "center",
+              gap:
+                "8px",
             }}
           >
 
@@ -2790,13 +3246,20 @@ function AlertsPanel({
 
           <div
             style={{
-              marginTop: "18px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "6px",
-              color: "#94a3b8",
-              fontSize: "10px",
+              marginTop:
+                "18px",
+              display:
+                "flex",
+              alignItems:
+                "center",
+              justifyContent:
+                "center",
+              gap:
+                "6px",
+              color:
+                "#94a3b8",
+              fontSize:
+                "10px",
             }}
           >
 
@@ -2838,41 +3301,53 @@ function AlertCard({
 }) {
 
   const background =
-    severity === "SEVERE"
+    severity ===
+    "SEVERE"
       ? "#fef2f2"
-      : severity === "HIGH"
+      : severity ===
+          "HIGH"
         ? "#fff7ed"
-        : severity === "MODERATE"
+        : severity ===
+            "MODERATE"
           ? "#fffbeb"
           : "#f0fdf4";
 
 
   const border =
-    severity === "SEVERE"
+    severity ===
+    "SEVERE"
       ? "#fecaca"
-      : severity === "HIGH"
+      : severity ===
+          "HIGH"
         ? "#fed7aa"
-        : severity === "MODERATE"
+        : severity ===
+            "MODERATE"
           ? "#fde68a"
           : "#bbf7d0";
 
 
   const iconBackground =
-    severity === "SEVERE"
+    severity ===
+    "SEVERE"
       ? "#fee2e2"
-      : severity === "HIGH"
+      : severity ===
+          "HIGH"
         ? "#ffedd5"
-        : severity === "MODERATE"
+        : severity ===
+            "MODERATE"
           ? "#fef3c7"
           : "#dcfce7";
 
 
   const iconColor =
-    severity === "SEVERE"
+    severity ===
+    "SEVERE"
       ? "#dc2626"
-      : severity === "HIGH"
+      : severity ===
+          "HIGH"
         ? "#ea580c"
-        : severity === "MODERATE"
+        : severity ===
+            "MODERATE"
           ? "#d97706"
           : "#16a34a";
 
@@ -2881,8 +3356,10 @@ function AlertCard({
 
     <div
       style={{
-        padding: "16px",
-        borderRadius: "14px",
+        padding:
+          "16px",
+        borderRadius:
+          "14px",
         border:
           `1px solid ${border}`,
         background,
@@ -2891,24 +3368,33 @@ function AlertCard({
 
       <div
         style={{
-          display: "flex",
-          gap: "12px",
+          display:
+            "flex",
+          gap:
+            "12px",
         }}
       >
 
         <div
           style={{
-            width: "38px",
-            height: "38px",
-            flexShrink: 0,
-            borderRadius: "10px",
+            width:
+              "38px",
+            height:
+              "38px",
+            flexShrink:
+              0,
+            borderRadius:
+              "10px",
             background:
               iconBackground,
             color:
               iconColor,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            display:
+              "flex",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
           }}
         >
 
@@ -2919,23 +3405,28 @@ function AlertCard({
 
         <div
           style={{
-            flex: 1,
+            flex:
+              1,
           }}
         >
 
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
+              display:
+                "flex",
+              alignItems:
+                "center",
               justifyContent:
                 "space-between",
-              gap: "10px",
+              gap:
+                "10px",
             }}
           >
 
             <strong
               style={{
-                fontSize: "13px",
+                fontSize:
+                  "13px",
               }}
             >
               {title}
@@ -2944,17 +3435,17 @@ function AlertCard({
 
             <span
               style={{
-                fontSize: "9px",
-                fontWeight: 800,
+                fontSize:
+                  "9px",
+                fontWeight:
+                  800,
                 letterSpacing:
                   "0.06em",
                 color:
                   iconColor,
               }}
             >
-
               {severity}
-
             </span>
 
           </div>
@@ -2972,9 +3463,7 @@ function AlertCard({
                 1.55,
             }}
           >
-
             {description}
-
           </p>
 
         </div>
@@ -3004,12 +3493,16 @@ function SettingsPanel({
 
     <div
       style={{
-        position: "fixed",
-        inset: 0,
+        position:
+          "fixed",
+        inset:
+          0,
         background:
           "rgba(10,20,30,0.55)",
-        zIndex: 9999,
-        display: "flex",
+        zIndex:
+          9999,
+        display:
+          "flex",
         justifyContent:
           "flex-end",
         backdropFilter:
@@ -3022,11 +3515,14 @@ function SettingsPanel({
         style={{
           width:
             "min(420px, 100%)",
-          height: "100%",
-          background: "#ffffff",
+          height:
+            "100%",
+          background:
+            "#ffffff",
           boxShadow:
             "-20px 0 60px rgba(0,0,0,0.2)",
-          overflowY: "auto",
+          overflowY:
+            "auto",
         }}
         onClick={(event) =>
           event.stopPropagation()
@@ -3035,13 +3531,16 @@ function SettingsPanel({
 
         <div
           style={{
-            padding: "24px",
+            padding:
+              "24px",
             borderBottom:
               "1px solid #e5e7eb",
-            display: "flex",
+            display:
+              "flex",
             justifyContent:
               "space-between",
-            alignItems: "center",
+            alignItems:
+              "center",
           }}
         >
 
@@ -3049,9 +3548,12 @@ function SettingsPanel({
 
             <span
               style={{
-                fontSize: "10px",
-                fontWeight: 700,
-                color: "#64748b",
+                fontSize:
+                  "10px",
+                fontWeight:
+                  700,
+                color:
+                  "#64748b",
                 letterSpacing:
                   "0.08em",
               }}
@@ -3074,11 +3576,14 @@ function SettingsPanel({
           <button
             onClick={onClose}
             style={{
-              border: "none",
+              border:
+                "none",
               background:
                 "#f1f5f9",
-              width: "38px",
-              height: "38px",
+              width:
+                "38px",
+              height:
+                "38px",
               borderRadius:
                 "10px",
               cursor:
@@ -3095,13 +3600,15 @@ function SettingsPanel({
 
         <div
           style={{
-            padding: "24px",
+            padding:
+              "24px",
           }}
         >
 
           <div
             style={{
-              padding: "18px",
+              padding:
+                "18px",
               background:
                 "#f8fafc",
               borderRadius:
@@ -3165,8 +3672,10 @@ function SettingsPanel({
 
           <div
             style={{
-              marginTop: "24px",
-              padding: "16px",
+              marginTop:
+                "24px",
+              padding:
+                "16px",
               background:
                 "#fff7ed",
               border:
@@ -3219,12 +3728,14 @@ function SettingRow({
 
     <div
       style={{
-        display: "flex",
+        display:
+          "flex",
         justifyContent:
           "space-between",
         alignItems:
           "center",
-        gap: "15px",
+        gap:
+          "15px",
         padding:
           "16px 0",
         borderBottom:
@@ -3267,8 +3778,10 @@ function SettingRow({
 
       <div
         style={{
-          width: "38px",
-          height: "22px",
+          width:
+            "38px",
+          height:
+            "22px",
           borderRadius:
             "20px",
           background:
@@ -3277,7 +3790,8 @@ function SettingRow({
               : "#cbd5e1",
           position:
             "relative",
-          flexShrink: 0,
+          flexShrink:
+            0,
         }}
       >
 
@@ -3285,13 +3799,16 @@ function SettingRow({
           style={{
             position:
               "absolute",
-            top: "3px",
+            top:
+              "3px",
             left:
               enabled
                 ? "19px"
                 : "3px",
-            width: "16px",
-            height: "16px",
+            width:
+              "16px",
+            height:
+              "16px",
             borderRadius:
               "50%",
             background:
@@ -3314,6 +3831,7 @@ function SettingRow({
 
 function EmergencyPanel({
   locationName,
+  country,
   riskLevel,
   riskScore,
   disasterActive,
@@ -3322,6 +3840,7 @@ function EmergencyPanel({
   onClose,
 }: {
   locationName: string;
+  country: string;
   riskLevel: string;
   riskScore: number;
   disasterActive: boolean;
@@ -3330,28 +3849,46 @@ function EmergencyPanel({
   onClose: () => void;
 }) {
 
+
+  /*
+   * GET CONTACTS FOR THE CURRENT COUNTRY
+   */
+
+  const contacts =
+    getEmergencyContacts(
+      country
+    );
+
+
   const hospitals =
     places.filter(
       (place) =>
-        place.type === "hospital"
+        place.type ===
+        "hospital"
     );
+
 
   const police =
     places.filter(
       (place) =>
-        place.type === "police"
+        place.type ===
+        "police"
     );
+
 
   const fire =
     places.filter(
       (place) =>
-        place.type === "fire"
+        place.type ===
+        "fire"
     );
+
 
   const shelters =
     places.filter(
       (place) =>
-        place.type === "shelter"
+        place.type ===
+        "shelter"
     );
 
 
@@ -3359,17 +3896,22 @@ function EmergencyPanel({
 
     <div
       style={{
-        position: "fixed",
-        inset: 0,
+        position:
+          "fixed",
+        inset:
+          0,
         background:
           "rgba(10,20,30,0.55)",
-        zIndex: 9999,
-        display: "flex",
+        zIndex:
+          9999,
+        display:
+          "flex",
         justifyContent:
           "center",
         alignItems:
           "center",
-        padding: "24px",
+        padding:
+          "24px",
         backdropFilter:
           "blur(5px)",
       }}
@@ -3380,10 +3922,14 @@ function EmergencyPanel({
         style={{
           width:
             "min(1000px, 100%)",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          background: "#ffffff",
-          borderRadius: "20px",
+          maxHeight:
+            "90vh",
+          overflowY:
+            "auto",
+          background:
+            "#ffffff",
+          borderRadius:
+            "20px",
           boxShadow:
             "0 25px 80px rgba(0,0,0,0.25)",
         }}
@@ -3392,12 +3938,17 @@ function EmergencyPanel({
         }
       >
 
+
+        {/* HEADER */}
+
         <div
           style={{
-            padding: "24px",
+            padding:
+              "24px",
             borderBottom:
               "1px solid #e5e7eb",
-            display: "flex",
+            display:
+              "flex",
             justifyContent:
               "space-between",
             alignItems:
@@ -3409,17 +3960,21 @@ function EmergencyPanel({
 
             <div
               style={{
-                display: "flex",
+                display:
+                  "flex",
                 alignItems:
                   "center",
-                gap: "12px",
+                gap:
+                  "12px",
               }}
             >
 
               <div
                 style={{
-                  width: "44px",
-                  height: "44px",
+                  width:
+                    "44px",
+                  height:
+                    "44px",
                   borderRadius:
                     "12px",
                   background:
@@ -3444,7 +3999,8 @@ function EmergencyPanel({
 
                 <h2
                   style={{
-                    margin: 0,
+                    margin:
+                      0,
                     fontSize:
                       "22px",
                   }}
@@ -3474,11 +4030,14 @@ function EmergencyPanel({
           <button
             onClick={onClose}
             style={{
-              border: "none",
+              border:
+                "none",
               background:
                 "#f1f5f9",
-              width: "38px",
-              height: "38px",
+              width:
+                "38px",
+              height:
+                "38px",
               borderRadius:
                 "10px",
               cursor:
@@ -3493,10 +4052,14 @@ function EmergencyPanel({
         </div>
 
 
+        {/* STATUS */}
+
         <div
           style={{
-            margin: "24px",
-            padding: "18px",
+            margin:
+              "24px",
+            padding:
+              "18px",
             borderRadius:
               "14px",
             background:
@@ -3514,7 +4077,8 @@ function EmergencyPanel({
                 "flex",
               alignItems:
                 "center",
-              gap: "12px",
+              gap:
+                "12px",
             }}
           >
 
@@ -3526,9 +4090,11 @@ function EmergencyPanel({
             <div>
 
               <strong>
+
                 {disasterActive
                   ? "Active natural hazard detected"
                   : "Emergency preparedness mode"}
+
               </strong>
 
               <p
@@ -3556,6 +4122,8 @@ function EmergencyPanel({
 
         </div>
 
+
+        {/* EMERGENCY CONTACTS */}
 
         <div
           style={{
@@ -3585,37 +4153,50 @@ function EmergencyPanel({
                 <Phone size={20} />
               }
               title="Emergency"
-              number="112"
+              number={
+                contacts.emergency
+              }
             />
+
 
             <EmergencyContact
               icon={
                 <Siren size={20} />
               }
               title="Police"
-              number="100"
+              number={
+                contacts.police
+              }
             />
+
 
             <EmergencyContact
               icon={
                 <Flame size={20} />
               }
               title="Fire"
-              number="101"
+              number={
+                contacts.fire
+              }
             />
+
 
             <EmergencyContact
               icon={
                 <Hospital size={20} />
               }
               title="Ambulance"
-              number="108"
+              number={
+                contacts.ambulance
+              }
             />
 
           </div>
 
         </div>
 
+
+        {/* NEARBY SERVICES */}
 
         <div
           style={{
@@ -3696,7 +4277,8 @@ function EmergencyPanel({
 
 
           {!loading &&
-            places.length === 0 && (
+            places.length ===
+              0 && (
 
               <div
                 style={{
@@ -3740,34 +4322,45 @@ function EmergencyPanel({
                   icon={
                     <Hospital size={20} />
                   }
-                  places={hospitals}
+                  places={
+                    hospitals
+                  }
                   type="hospital"
                 />
+
 
                 <PlaceSection
                   title="Police"
                   icon={
                     <Siren size={20} />
                   }
-                  places={police}
+                  places={
+                    police
+                  }
                   type="police"
                 />
+
 
                 <PlaceSection
                   title="Fire stations"
                   icon={
                     <Flame size={20} />
                   }
-                  places={fire}
+                  places={
+                    fire
+                  }
                   type="fire"
                 />
+
 
                 <PlaceSection
                   title="Shelters"
                   icon={
                     <Home size={20} />
                   }
-                  places={shelters}
+                  places={
+                    shelters
+                  }
                   type="shelter"
                 />
 
@@ -3777,6 +4370,8 @@ function EmergencyPanel({
 
         </div>
 
+
+        {/* SAFETY */}
 
         <div
           style={{
@@ -3819,6 +4414,8 @@ function EmergencyPanel({
 
         </div>
 
+
+        {/* FOOTER */}
 
         <div
           style={{
@@ -3918,7 +4515,8 @@ function PlaceSection({
       </div>
 
 
-      {places.length === 0 ? (
+      {places.length ===
+      0 ? (
 
         <div
           style={{
@@ -3947,12 +4545,17 @@ function PlaceSection({
         >
 
           {places
-            .slice(0, 4)
+            .slice(
+              0,
+              4
+            )
             .map(
               (place) => (
 
                 <a
-                  key={place.id}
+                  key={
+                    place.id
+                  }
                   href={`https://www.openstreetmap.org/?mlat=${place.latitude}&mlon=${place.longitude}`}
                   target="_blank"
                   rel="noreferrer"
@@ -3982,8 +4585,10 @@ function PlaceSection({
 
                   <div
                     style={{
-                      flex: 1,
-                      minWidth: 0,
+                      flex:
+                        1,
+                      minWidth:
+                        0,
                     }}
                   >
 
